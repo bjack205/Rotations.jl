@@ -11,22 +11,32 @@ import Statistics
 include("util.jl")
 include("core_types.jl")
 include("quaternion_types.jl")
+include("unitquaternion.jl")
 include("angleaxis_types.jl")
 include("euler_types.jl")
 include("mean.jl")
 include("derivatives.jl")
 include("principal_value.jl")
 
+include("rodrigues_params.jl")
+include("mrps.jl")
+
 
 export
     Rotation, RotMatrix, RotMatrix2, RotMatrix3,
     Angle2d,
-    Quat, SPQuat,
-    AngleAxis, RodriguesVec,
+    Quat, SPQuat, UnitQuaternion,
+    AngleAxis, RodriguesVec, RodriguesParam, MRP,
     RotX, RotY, RotZ,
     RotXY, RotYX, RotZX, RotXZ, RotYZ, RotZY,
     RotXYX, RotYXY, RotZXZ, RotXZX, RotYZY, RotZYZ,
     RotXYZ, RotYXZ, RotZXY, RotXZY, RotYZX, RotZYX,
+
+    # Quaternion math ops
+    logm, expm, ⊖,
+
+    # Quaternion maps
+    ExponentialMap, VectorPart, CayleyMap, MRPMap, IdentityMap,
 
     # check validity of the rotation (is it close to unitary?)
     isrotation,

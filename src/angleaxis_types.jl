@@ -70,12 +70,12 @@ end
         c1xz + sy, c1yz - sx, one(T) - c1x2 - c1y2)
 end
 
-@inline function (::Type{Q})(aa::AngleAxis) where Q <: Quat
+@inline function (::Type{Q})(aa::AngleAxis) where Q <: AllQuats
     s, c = sincos(aa.theta / 2)
     return Q(c, s * aa.axis_x, s * aa.axis_y, s * aa.axis_z, false)
 end
 
-@inline function (::Type{AA})(q::Quat) where AA <: AngleAxis
+@inline function (::Type{AA})(q::AllQuats) where AA <: AngleAxis
     s2 = q.x * q.x + q.y * q.y + q.z * q.z
     sin_t2 = sqrt(s2)
     theta = 2 * atan(sin_t2, q.w)

@@ -66,6 +66,7 @@ end
 #####################################################################################
 
 rot_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
+			 UnitQuaternion, RodriguesParam, MRP,
              RotXYZ, RotYZX, RotZXY, RotXZY, RotYXZ, RotZYX,
              RotXYX, RotYZY, RotZXZ, RotXZX, RotYXY, RotZYZ)
 
@@ -73,10 +74,13 @@ one_types = (RotX, RotY, RotZ)
 two_types = (RotXY, RotYZ, RotZX, RotXZ, RotYX, RotZY)
 taitbyran_types = (RotXYZ, RotYZX, RotZXY, RotXZY, RotYXZ, RotZYX)
 all_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
+			 UnitQuaternion, RodriguesParam, MRP,
              RotXYZ, RotYZX, RotZXY, RotXZY, RotYXZ, RotZYX,
              RotXYX, RotYZY, RotZXZ, RotXZX, RotYXY, RotZYZ,
              RotX, RotY, RotZ,
              RotXY, RotYZ, RotZX, RotXZ, RotYX, RotZY)
+
+quat_types = (Quat, UnitQuaternion)
 
 ###############################
 # Start testing
@@ -143,20 +147,22 @@ all_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
 
     @testset "Quaternion double cover" begin
         repeats = 100
-        for i = 1 : repeats
-            q = rand(Quat)
+		@testset "$Q double cover" for Q in quat_types
+	        for i = 1 : repeats
+	            q = rand(Quat)
 
-            q2 = Quat(-q.w, -q.x, -q.y, -q.z) # normalize: need a tolerance
-            @test SVector(q2.w, q2.x, q2.y, q2.z) ≈ SVector(-q.w, -q.x, -q.y, -q.z) atol = 100 * eps()
-            @test q ≈ q2 atol = 100 * eps()
+	            q2 = Quat(-q.w, -q.x, -q.y, -q.z) # normalize: need a tolerance
+	            @test SVector(q2.w, q2.x, q2.y, q2.z) ≈ SVector(-q.w, -q.x, -q.y, -q.z) atol = 100 * eps()
+	            @test q ≈ q2 atol = 100 * eps()
 
-            q3 = Quat(-q.w, -q.x, -q.y, -q.z, false) # don't normalize: everything is exact
-            @test (q3.w, q3.x, q3.y, q3.z) == (-q.w, -q.x, -q.y, -q.z)
-            @test q == q3
+	            q3 = Quat(-q.w, -q.x, -q.y, -q.z, false) # don't normalize: everything is exact
+	            @test (q3.w, q3.x, q3.y, q3.z) == (-q.w, -q.x, -q.y, -q.z)
+	            @test q == q3
 
-            Δq = q \ q3
-            @test Δq ≈ one(Quat) atol = 100 * eps()
-        end
+	            Δq = q \ q3
+	            @test Δq ≈ one(Quat) atol = 100 * eps()
+	        end
+		end
     end
 
     # compose two random rotations
@@ -205,12 +211,14 @@ all_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
 
     @testset "DCM to Quat" begin
         pert = 1e-3
-        for type_rot in all_types
-            for _ = 1:100
-                not_orthonormal = rand(type_rot) + rand(3, 3) * pert
-                @test norm(Quat(not_orthonormal) - nearest_orthonormal(not_orthonormal)) < 10pert
-            end
-        end
+		for quat in quat_types
+	        for type_rot in all_types
+	            for _ = 1:100
+	                not_orthonormal = rand(type_rot) + rand(3, 3) * pert
+	                @test norm(quat(not_orthonormal) - nearest_orthonormal(not_orthonormal)) < 10pert
+	            end
+	        end
+		end
     end
 
     #########################################################################
@@ -233,7 +241,7 @@ all_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
                 @test rotation_axis(r2) ≈ axis
             end
         end
-	@test norm(rotation_axis(Quat(1.0, 0.0, 0.0, 0.0))) ≈ 1.0
+		@test norm(rotation_axis(Quat(1.0, 0.0, 0.0, 0.0))) ≈ 1.0
 
         # TODO RotX, RotXY?
     end
@@ -304,26 +312,26 @@ all_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
       a=[1.0 0.0 0.0
          0.0 0.0 -1.0
          0.0 1.0 0.0]
-      @test isrotation(a) 
+      @test isrotation(a)
       foreach(rot_types) do rot_type
         foreach(1:20) do idx
           @test isrotation(rand(rot_type))
-        end 
+        end
       end
       a=[40.0 0.0 0.0
          0.0 0.0 1.0
          0.0 1.0 0.0]
-      @test !isrotation(a) 
+      @test !isrotation(a)
       a=[1.0 0.0 0.0
          0.0 0.0 1.0
          0.0 1.0 0.0]
-      @test !isrotation(a) 
+      @test !isrotation(a)
 
       # isrotation should work for integer (or boolean) matrices (issue #94)
       @test isrotation([0 1 0; -1 0 0; 0 0 1])
       @test isrotation(Matrix(I,3,3))
-    end 
-    
+    end
+
     @testset "Testing type aliases" begin
         @test one(RotMatrix{2, Float64}) isa RotMatrix2{Float64}
         @test one(RotMatrix{3, Float64}) isa RotMatrix3{Float64}
@@ -340,6 +348,12 @@ all_types = (RotMatrix{3}, Quat, SPQuat, AngleAxis, RodriguesVec,
         quat = Quat(w, x, y, z)
         @test norm([quat.w, quat.x, quat.y, quat.z]) ≈ 1.
         quat = Quat(w, x, y, z, false)
+        @test norm([quat.w, quat.x, quat.y, quat.z]) ≈ norm([w, x, y, z])
+
+        w, x, y, z = 1., 2., 3., 4.
+        quat = UnitQuaternion(w, x, y, z)
+        @test norm([quat.w, quat.x, quat.y, quat.z]) ≈ 1.
+        quat = UnitQuaternion(w, x, y, z, false)
         @test norm([quat.w, quat.x, quat.y, quat.z]) ≈ norm([w, x, y, z])
     end
 

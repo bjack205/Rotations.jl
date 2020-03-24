@@ -18,6 +18,7 @@ the following properties:
 """
 principal_value(r::RotMatrix) = r
 principal_value(q::Quat{T}) where {T} = q.w < zero(T) ? Quat{T}(-q.w, -q.x, -q.y, -q.z, false) : q
+principal_value(q::Q) where Q <: UnitQuaternion = q.w < zero(eltype(q)) ? Q(-q.w, -q.x, -q.y, -q.z, false) : q
 function principal_value(spq::SPQuat{T}) where {T}
     # A quat with positive real part: Quat( qw,  qx,  qy,  qz)
     #
@@ -89,4 +90,3 @@ for rot_type in [:RotXYX, :RotYXY, :RotZXZ, :RotXZX, :RotYZY, :RotZYZ, :RotXYZ, 
         end
     end
 end
-

@@ -1,5 +1,4 @@
 import Base: +, -, *, /, \, exp, log, ≈, ==, inv, conj
-import LinearAlgebra: norm2
 
 abstract type QuatMap end
 
@@ -67,6 +66,11 @@ UnitQuaternion{D}(w::W,x::X,y::Y,z::Z, normalize::Bool = true) where {W,X,Y,Z,D<
 # Copy constructors
 UnitQuaternion(q::UnitQuaternion) = q
 UnitQuaternion{D}(q::UnitQuaternion) where D = UnitQuaternion{D}(q.w, q.x, q.y, q.z)
+
+# UnitQuaternion <=> Quat
+(::Type{Q})(q::Quat) where Q <: UnitQuaternion = Q(q.w, q.x, q.y, q.z, false)
+(::Type{Q})(q::UnitQuaternion) where Q <: Quat = Q(q.w, q.x, q.y, q.z, false)
+const AllQuats{T} = Union{<:Quat{T}, <:UnitQuaternion{T}}
 
 
 # ~~~~~~~~~~~~~~~ StaticArrays Interface ~~~~~~~~~~~~~~~ #
@@ -223,7 +227,6 @@ inv(q::UnitQuaternion) = conj(q)
 
 # Norms
 LinearAlgebra.norm(q::UnitQuaternion) = sqrt(q.w^2 + q.x^2 + q.y^2 + q.z^2)
-LinearAlgebra.norm2(q::UnitQuaternion) = q.w^2 + q.x^2 + q.y^2 + q.z^2
 vecnorm(q::UnitQuaternion) = sqrt(q.x^2 + q.y^2 + q.z^2)
 
 function LinearAlgebra.normalize(q::UnitQuaternion{T,D}) where {T,D}
