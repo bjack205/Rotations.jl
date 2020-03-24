@@ -282,8 +282,8 @@ Quternion Composition
 
 Equivalent to
 ```julia
-Lmult(q) * SVector(w)
-Rmult(w) * SVector(q)
+lmult(q) * SVector(w)
+rmult(w) * SVector(q)
 ```
 
 Sets the output mapping equal to the mapping of `w`
@@ -302,7 +302,7 @@ end
 
 Rotate a vector
 
-Equivalent to `Hmat()' Lmult(q) * Rmult(q)' Hmat() * r`
+Equivalent to `hmat()' lmult(q) * rmult(q)' hmat() * r`
 """
 function Base.:*(q::UnitQuaternion, r::StaticVector)  # must be StaticVector to avoid ambiguity
     check_length(r, 3)
@@ -356,41 +356,44 @@ end
 
 # ~~~~~~~~~~~~~~~ Linear Algebraic Conversions ~~~~~~~~~~~~~~~ #
 """
-    Lmult(q::UnitQuaternion)
-    Lmult(q::StaticVector{4})
+    lmult(q::UnitQuaternion)
+    lmult(q::StaticVector{4})
+
+`lmult(q2)*SVector(q1)` returns a vector equivalent to `q2*q1` (quaternion composition)
 """
-function Lmult(q::UnitQuaternion)
-    @SMatrix [
+function lmult(q::UnitQuaternion)
+    SA[
         q.w -q.x -q.y -q.z;
         q.x  q.w -q.z  q.y;
         q.y  q.z  q.w -q.x;
         q.z -q.y  q.x  q.w;
     ]
 end
-Lmult(q::SVector{4}) = Lmult(UnitQuaternion(q, false))
-"""
-    Rmult(q::UnitQuaternion)
-    Rmult(q::StaticVector{4})
+lmult(q::StaticVector{4}) = lmult(UnitQuaternion(q, false))
 
-`Rmult(q1)*SVector(q2)` return a vector equivalent to `q2*q1` (quaternion composition)
 """
-function Rmult(q::UnitQuaternion)
-    @SMatrix [
+    rmult(q::UnitQuaternion)
+    rmult(q::StaticVector{4})
+
+`rmult(q1)*SVector(q2)` return a vector equivalent to `q2*q1` (quaternion composition)
+"""
+function rmult(q::UnitQuaternion)
+    SA[
         q.w -q.x -q.y -q.z;
         q.x  q.w  q.z -q.y;
         q.y -q.z  q.w  q.x;
         q.z  q.y -q.x  q.w;
     ]
 end
-Rmult(q::SVector{4}) = Rmult(UnitQuaternion(q, false))
+rmult(q::SVector{4}) = rmult(UnitQuaternion(q, false))
 
 """
-    Tmat()
+    tmat()
 
-`Tmat()*SVector(q)`return a vector equivalent to `inv(q)`, where `q` is a `UnitQuaternion`
+`tmat()*SVector(q)`return a vector equivalent to `inv(q)`, where `q` is a `UnitQuaternion`
 """
-function Tmat()
-    @SMatrix [
+function tmat(::Type{T}=Float64) where T
+    SA{T}[
         1  0  0  0;
         0 -1  0  0;
         0  0 -1  0;
@@ -399,13 +402,13 @@ function Tmat()
 end
 
 """
-    Vmat()
+    vmat()
 
-`Vmat()*SVector(q)`` returns the imaginary
+`vmat()*SVector(q)`` returns the imaginary
     (vector) part of the quaternion `q` (equivalent to `vector(q)``)
 """
-function Vmat()
-    @SMatrix [
+function vmat(::Type{T}=Float64) where T
+    SA{T}[
         0 1 0 0;
         0 0 1 0;
         0 0 0 1
@@ -413,15 +416,15 @@ function Vmat()
 end
 
 """
-    Hmat()
-    Hmat(r::AbstractVector)
+    hmat()
+    hmat(r::AbstractVector)
 
-`Hmat()*r` or `Hmat(r)` converts `r` into a pure quaternion, where `r` is 3-dimensional.
+`hmat()*r` or `hmat(r)` converts `r` into a pure quaternion, where `r` is 3-dimensional.
 
-`Hmat() == Vmat()'`
+`hmat() == vmat()'`
 """
-function Hmat()
-    @SMatrix [
+function hmat(::Type{T}=Float64) where T
+    SA{T}[
         0 0 0;
         1 0 0;
         0 1 0;
@@ -429,9 +432,9 @@ function Hmat()
     ]
 end
 
-function Hmat(r)
+function hmat(r)
     @assert length(r) == 3
-    @SVector [0,r[1],r[2],r[3]]
+    SA[0, r[1], r[2], r[3]]
 end
 
 
@@ -439,14 +442,14 @@ end
 """
     ∇differential(q::UnitQuaternion)
 
-Jacobian of `Lmult(q) QuatMap(ϕ)`, when ϕ is near zero.
+Jacobian of `lmult(q) QuatMap(ϕ)`, when ϕ is near zero.
 
 Useful for converting Jacobians from R⁴ to R³ and
     correctly account for unit norm constraint. Jacobians for different
     differential quaternion parameterization are the same up to a constant.
 """
 function ∇differential(q::UnitQuaternion)
-    1.0 * @SMatrix [
+    SA[
         -q.x -q.y -q.z;
          q.w -q.z  q.y;
          q.z  q.w -q.x;
@@ -457,7 +460,7 @@ end
 """
     ∇²differential(q::UnitQuaternion, b::SVector{4})
 
-Jacobian of `(∂/∂ϕ Lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0
+Jacobian of `(∂/∂ϕ lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0
 """
 function ∇²differential(q::UnitQuaternion, b::AbstractVector)
     check_length(b, 4)
@@ -483,7 +486,7 @@ end
 Jacobian of `R2*R1` with respect to `R1`
 """
 function ∇composition1(q2::UnitQuaternion, q1::UnitQuaternion)
-    Lmult(q2)
+    lmult(q2)
 end
 
 """
@@ -492,5 +495,5 @@ end
 Jacobian of `R2*R1` with respect to `R2`
 """
 function ∇composition2(q2::UnitQuaternion, q1::UnitQuaternion)
-    Rmult(q1)
+    rmult(q1)
 end

@@ -3,11 +3,12 @@ using LinearAlgebra
 using StaticArrays
 using Test
 using ForwardDiff
+using BenchmarkTools
 
 import Rotations: jacobian, ∇rotate, ∇composition1, ∇composition2
 import Rotations: UnitQuaternion, CayleyMap, ExponentialMap, MRPMap, IdentityMap, VectorPart,
     map_type, expm, logm, ⊖, kinematics
-import Rotations: Vmat, Rmult, Lmult, Hmat, Tmat
+import Rotations: vmat, rmult, lmult, hmat, tmat
 
 @testset "Unit Quaternions" begin
     q1 = rand(UnitQuaternion)
@@ -103,15 +104,15 @@ import Rotations: Vmat, Rmult, Lmult, Hmat, Tmat
 
     q = q1
     rhat = UnitQuaternion(r,false)
-    @test q*r ≈ Vmat()*Lmult(q)*Rmult(q)'*Vmat()'r
-    @test q*r ≈ Vmat()*Lmult(q)*Rmult(q)'*Hmat(r)
-    @test q*r ≈ Vmat()*Lmult(q)*Lmult(rhat)*Tmat()*SVector(q)
-    @test q*r ≈ Vmat()*Rmult(q)'*Rmult(rhat)*SVector(q)
-    @test q*r ≈ Hmat()'Rmult(q)'*Rmult(rhat)*SVector(q)
+    @test q*r ≈ vmat()*lmult(q)*rmult(q)'*vmat()'r
+    @test q*r ≈ vmat()*lmult(q)*rmult(q)'*hmat(r)
+    @test q*r ≈ vmat()*lmult(q)*lmult(rhat)*tmat()*SVector(q)
+    @test q*r ≈ vmat()*rmult(q)'*rmult(rhat)*SVector(q)
+    @test q*r ≈ hmat()'rmult(q)'*rmult(rhat)*SVector(q)
 
-    @test Rmult(SVector(q)) == Rmult(q)
-    @test Lmult(SVector(q)) == Lmult(q)
-    @test Hmat(r) == SVector(UnitQuaternion(r,false))
+    @test rmult(SVector(q)) == rmult(q)
+    @test lmult(SVector(q)) == lmult(q)
+    @test hmat(r) == SVector(UnitQuaternion(r,false))
 
     @test kinematics(q1,ω) isa SVector{4}
 
@@ -131,13 +132,13 @@ import Rotations: Vmat, Rmult, Lmult, Hmat, Tmat
     @test ForwardDiff.jacobian(ϕ->∇diffcomp(ϕ)'b, @SVector zeros(3)) ≈
         Rotations.∇²differential(q2, b)
 
-    @test Lmult(q) ≈ ∇composition1(q,q2)
+    @test lmult(q) ≈ ∇composition1(q,q2)
 
     ϕ = @SVector zeros(3)
-    @test Rotations.∇differential(q) ≈ Lmult(q)*jacobian(VectorPart,ϕ)
-    @test Rotations.∇differential(q) ≈ Lmult(q)*jacobian(ExponentialMap,ϕ)
-    @test Rotations.∇differential(q) ≈ Lmult(q)*jacobian(CayleyMap,ϕ)
-    @test Rotations.∇differential(q) ≈ Lmult(q)*jacobian(MRPMap,ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(VectorPart,ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(ExponentialMap,ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(CayleyMap,ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(MRPMap,ϕ)
 
     R1 = RotX
     R2 = UnitQuaternion
