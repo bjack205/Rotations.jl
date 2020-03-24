@@ -146,4 +146,30 @@ import Rotations: Vmat, Rmult, Lmult, Hmat, Tmat
 
     r2 = R2(r1)
     r2 ≈ m1
+
+    # Check ops with Float32
+    ϕ = SA_F32[1,2,3]
+    @test expm(SA_F32[1,2,3]) isa UnitQuaternion{Float32,ExponentialMap}
+
+    q32 = rand(UnitQuaternion{Float32})
+    @test log(q32) isa UnitQuaternion{Float32}
+    @test eltype(logm(q32)) == Float32
+    @test expm(logm(q32)) ≈ q32
+
+    @test normalize(q32) isa UnitQuaternion{Float32}
+
+    ω = @SVector rand(3)
+    ω32 = Float32.(ω)
+    @test Rotations.kinematics(q, ω) isa SVector{4,Float64}
+    @test Rotations.kinematics(q32, ω32) isa SVector{4,Float32}
+    @test Rotations.kinematics(q32, ω) isa SVector{4,Float32}
+    @test Rotations.kinematics(q32, [1,2,3]) isa SVector{4,Float32}
+
+    @test eltype(lmult(q32)) == Float32
+    @test eltype(lmult(q)) == Float64
+
+    @test eltype(tmat()) == Float64
+    @test eltype(tmat(Int)) == Int
+    @test eltype(vmat(Float32)) == Float32
+    @test eltype(hmat(Float32)) == Float32
 end

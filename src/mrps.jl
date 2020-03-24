@@ -18,10 +18,10 @@ end
 
 # ~~~~~~~~~~~~~~~ Constructors ~~~~~~~~~~~~~~~ #
 MRP(x::X, y::Y, z::Z) where {X,Y,Z} = MRP{promote_type(X,Y,Z)}(x, y, z)
-(::Type{M})(g::SVector{3}) where M<:MRP= M(g[1], g[2], g[3])
+(::Type{M})(g::StaticVector) where M<:MRP= M(g[1], g[2], g[3])
 
 # ~~~~~~~~~~~~~~~ Conversions ~~~~~~~~~~~~~~~ #
-SVector(g::MRP{T}) where T = SVector{3,T}(g.x, g.y, g.z)
+SVector(g::MRP) = SVector{3}(g.x, g.y, g.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #
 Base.rand(::Type{RP}) where RP <: MRP = RP(rand(UnitQuaternion))
@@ -85,8 +85,8 @@ end
 
 
 # ~~~~~~~~~~~~~~~ Rotation ~~~~~~~~~~~~~~~ #
-@inline (*)(p::MRP, r::SVector) = UnitQuaternion(p)*r
-@inline (\)(p::MRP, r::SVector) = UnitQuaternion(p)\r
+@inline (*)(p::MRP, r::StaticVector) = UnitQuaternion(p)*r
+@inline (\)(p::MRP, r::StaticVector) = UnitQuaternion(p)\r
 
 
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ #
@@ -129,7 +129,8 @@ function ∇composition1(p2::MRP, p1::MRP)
     d1 + d2
 end
 
-function ∇²composition1(p2::MRP, p1::MRP, b::SVector{3})
+function ∇²composition1(p2::MRP, p1::MRP, b::AbstractVector)
+    check_length(b, 3)
     p2,p1 = SVector(p2), SVector(p1)
     n1 = p1'p1
     n2 = p2'p2
@@ -164,7 +165,8 @@ function ∇differential(p::MRP)
 end
 
 
-function ∇²differential(p2::MRP, b::SVector{3})
+function ∇²differential(p2::MRP, b::AbstractVector)
+    check_length(L, 3)
     p2 = SVector(p2)
     n2 = p2'p2
     A = -p2  # 3x1
@@ -210,7 +212,8 @@ end
 
 Jacobian of `(∂/∂p p1\\p2)'b` wrt `p2`
 """
-function ∇²err(p1::MRP, p2::MRP, b::StaticVector{3})
+function ∇²err(p1::MRP, p2::MRP, b::AbstractVector)
+    check_length(b, 3)
     n1,n2 = norm2(p1),   norm2(p2)
     θ = 1/((1+n1)*(1+n2))
     s1,s2 = (1-n1), (1-n2)

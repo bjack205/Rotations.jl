@@ -22,6 +22,15 @@ function perpendicular_vector(vec::SVector{3})
     perp = @SVector [ifelse(i == ind1, perpind1, ifelse(i == ind2, perpind2, tzero)) for i = 1 : 3]
 end
 
+@noinline length_error(v, len) =
+    throw(DimensionMismatch("Expected length $len, got length $(length(v))"))
+
+@inline function check_length(v, len)
+    if length(v) != len
+        length_error(v, len)
+    end
+end
+
 function skew(v::AbstractVector)
     @assert length(v) == 3
     @SMatrix [0   -v[3]  v[2];

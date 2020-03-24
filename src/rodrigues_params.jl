@@ -17,10 +17,10 @@ end
 
 # ~~~~~~~~~~~~~~~ Constructors ~~~~~~~~~~~~~~~ #
 RodriguesParam(x::X, y::Y, z::Z) where {X,Y,Z} = RodriguesParam{promote_type(X,Y,Z)}(x, y, z)
-(::Type{RP})(g::SVector{3}) where RP<:RodriguesParam = RP(g[1], g[2], g[3])
+(::Type{RP})(g::StaticVector) where RP<:RodriguesParam = RP(g[1], g[2], g[3])
 
 # ~~~~~~~~~~~~~~~ Conversions ~~~~~~~~~~~~~~~ #
-SVector(g::RodriguesParam{T}) where T = SVector{3,T}(g.x, g.y, g.z)
+SVector(g::RodriguesParam) = SVector{3}(g.x, g.y, g.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #
 @inline Base.rand(::Type{RP}) where RP <: RodriguesParam = RP(rand(UnitQuaternion))
@@ -66,18 +66,20 @@ function (/)(g1::RodriguesParam, g2::RodriguesParam)
 end
 
 # ~~~~~~~~~~~~~~~ Rotation ~~~~~~~~~~~~~~~ #
-(*)(g::RodriguesParam, r::SVector{3}) = UnitQuaternion(g)*r
-(\)(g::RodriguesParam, r::SVector{3}) = inv(UnitQuaternion(g))*r
+(*)(g::RodriguesParam, r::StaticVector) = UnitQuaternion(g)*r
+(\)(g::RodriguesParam, r::StaticVector) = inv(UnitQuaternion(g))*r
 
 
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ #
-function kinematics(g::RodriguesParam, ω::SVector{3})
+function kinematics(g::RodriguesParam, ω)
+    check_length(ω, 3)
     g = SVector(g)
     0.5*(I + skew(g) + g*g')*ω
 end
 
 
 function ∇rotate(g0::RodriguesParam, r)
+    check_length(r, 3)
     g = SVector(g0)
     ghat = skew(g)
     n1 = 1/(1 + g'g)
@@ -96,7 +98,8 @@ function ∇composition1(g2::RodriguesParam, g1::RodriguesParam)
     (I + skew(g2) + D*N*g2')*D
 end
 
-function ∇²composition1(g2::RodriguesParam, g1::RodriguesParam, b::SVector{3})
+function ∇²composition1(g2::RodriguesParam, g1::RodriguesParam, b::AbstractVector)
+    check_length(b, 3)
     g2 = SVector(g2)
     g1 = SVector(g1)
 
@@ -121,7 +124,8 @@ function ∇differential(g::RodriguesParam)
     (I + skew(g) + g*g')
 end
 
-function ∇²differential(g::RodriguesParam, b::SVector{3})
+function ∇²differential(g::RodriguesParam, b::AbstractVector)
+    check_length(b, 3)
     g = SVector(g)
     return g*b'*(2g*g' + I + skew(g)) + (I - skew(g))*b*g'
 end
