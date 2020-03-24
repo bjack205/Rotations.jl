@@ -212,10 +212,6 @@ Base.rand(::Type{UnitQuaternion}) = Base.rand(UnitQuaternion{Float64,DEFAULT_QMA
 Base.zero(::Type{Q}) where Q<:UnitQuaternion = Q(I)
 Base.zero(q::Q) where Q<:UnitQuaternion = Q(I)
 @inline Base.one(::Type{Q}) where Q <: UnitQuaternion = Q(1.0, 0.0, 0.0, 0.0)
-@inline Base.one(::Type{UnitQuaternion{T}}) where T =
-    UnitQuaternion(one(T), zero(T), zero(T), zero(T))
-@inline Base.one(::Type{UnitQuaternion{T,D}}) where {T,D} =
-    UnitQuaternion{D}(one(T), zero(T), zero(T), zero(T))
 
 
 # ~~~~~~~~~~~~~~~ Math Operations ~~~~~~~~~~~~~~~ #
