@@ -1,13 +1,13 @@
-""" ```
-MRP{T} <: Rotation
-```
+"""
+    MRP{T} <: Rotation
+
 Modified Rodrigues Parameter. Is a 3D parameterization of attitude, and is a sterographic
 projection of the 4D unit sphere onto the plane tangent to the negative real pole. They
 have a singularity at θ = ±180°.
 
 # Constructors
 MRP(x, y, z)
-MRP(r::SVector{3})
+MRP(r::AbstractVector)
 """
 struct MRP{T} <: Rotation{3,T}
     x::T
@@ -182,7 +182,10 @@ function ∇²differential(p2::MRP, b::SVector{3})
     d1 + d2'
 end
 
-""" Jacobian of `p1\\p2` wrt `p2`
+"""
+    ∇err(p1::MRP, p2::MRP)
+
+Jacobian of `p1\\p2` wrt `p2`
 """
 function ∇err(p1::MRP, p2::MRP)
     n1,n2 = norm2(p1),   norm2(p2)
@@ -202,9 +205,12 @@ function ∇err(p1::MRP, p2::MRP)
     return dvdp*M + v*dMdp'
 end
 
-""" Jacobian of `(∂/∂p p1\\p2)'b` wrt `p2`
 """
-function ∇²err(p1::MRP, p2::MRP, b::SVector{3})
+    ∇²err(p1::MRP, p2::MRP, b::StaticVector{3})
+
+Jacobian of `(∂/∂p p1\\p2)'b` wrt `p2`
+"""
+function ∇²err(p1::MRP, p2::MRP, b::StaticVector{3})
     n1,n2 = norm2(p1),   norm2(p2)
     θ = 1/((1+n1)*(1+n2))
     s1,s2 = (1-n1), (1-n2)

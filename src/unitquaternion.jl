@@ -2,9 +2,9 @@ import Base: +, -, *, /, \, exp, log, ≈, ==, inv, conj
 
 abstract type QuatMap end
 
-""" ```
-UnitQuaternion{T,D} <: Rotation
-```
+"""
+    UnitQuaternion{T,D} <: Rotation
+
 4-parameter attitute representation that is singularity-free. Quaternions with unit norm
 represent a double-cover of SO(3). The `UnitQuaternion` does NOT strictly enforce the unit
 norm constraint, but certain methods will assume you have a unit quaternion. The
@@ -20,11 +20,15 @@ onto the plane tangent to either the positive or negative real poles.
 
 # Constructors
 ```julia
-UnitQuaternion(s,x,y,z)  # defaults to `VectorPart`
-UnitQuaternion{D}(s,x,y,z)
-UnitQuaternion{D}(q::SVector{4})
-UnitQuaternion{D}(r::SVector{3})  # quaternion with 0 real part
+UnitQuaternion(args...)  # defaults to `CayleyMay`
+UnitQuaternion{T<:Real}(args...)
+UnitQuaternion{D<:QuatMap}(args...)
+UnitQuaternion{T,D}(args...)
 ```
+where `args...` can be any of the following:
+- `w,x,y,z` specifying the scalar (real) part `w` and the vector (imaginary) part `x,y,z`
+- `AbstractVector` with elements `[w,x,y,z]` as the first 4 elements
+- `StaticVector{3}` with elements `[x,y,z]` and `w = 0`
 """
 struct UnitQuaternion{T,D<:QuatMap} <: Rotation{3,T}
     w::T
@@ -271,13 +275,18 @@ function logm(q::UnitQuaternion{T}) where T
 end
 
 # Composition
-""" Quternion Composition
+"""
+    (*)(q::UnitQuaternion, w::UnitQuaternion)
+
+Quternion Composition
+
 Equivalent to
 ```julia
 Lmult(q) * SVector(w)
-```julia
 Rmult(w) * SVector(q)
 ```
+
+Sets the output mapping equal to the mapping of `w`
 """
 function (*)(q::UnitQuaternion{T1,D1}, w::UnitQuaternion{T2,D2}) where {T1,T2,D1,D2}
     T = promote_type(T1, T2)
@@ -288,7 +297,11 @@ function (*)(q::UnitQuaternion{T1,D1}, w::UnitQuaternion{T2,D2}) where {T1,T2,D1
                         q.w * w.z + q.x * w.y - q.y * w.x + q.z * w.w, false)
 end
 
-""" Rotate a vector
+"""
+    (*)(q::UnitQuaternion, r::StaticVector)
+
+Rotate a vector
+
 Equivalent to `Hmat()' Lmult(q) * Rmult(q)' Hmat() * r`
 """
 function Base.:*(q::UnitQuaternion{Tq}, r::SVector{3}) where Tq
@@ -297,7 +310,11 @@ function Base.:*(q::UnitQuaternion{Tq}, r::SVector{3}) where Tq
     (w^2 - v'v)*r + 2*v*(v'r) + 2*w*cross(v,r)
 end
 
-"Scalar multiplication"
+"""
+    (*)(q::UnitQuaternion, w::Real)
+
+Scalar multiplication of a quaternion. Breaks unit norm.
+"""
 function (*)(q::Q, w::Real) where Q<:UnitQuaternion
     return Q(q.w*w, q.x*w, q.y*w, q.z*w, false)
 end
@@ -326,12 +343,21 @@ function (⊖)(q::UnitQuaternion{T,IdentityMap}, q0::UnitQuaternion) where {T}
 end
 
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ $
-function kinematics(q::UnitQuaternion{T,D}, ω::SVector{3}) where {T,D}
+"""
+    kinematics(R::Rotation{3}, ω::AbstractVector)
+
+The time derivative of the rotation R, according to the definition
+    ``Ṙ = \\lim_{Δt → 0} \\frac{q(t + Δt) - q(t)}{Δt}``
+"""
+function kinematics(q::UnitQuaternion{T,D}, ω::AbstractVector) where {T,D}
     0.5*SVector(q*UnitQuaternion{T,D}(0.0, ω[1], ω[2], ω[3]))
 end
 
 # ~~~~~~~~~~~~~~~ Linear Algebraic Conversions ~~~~~~~~~~~~~~~ #
-"Lmult(q2)q1 returns a vector equivalent to q2*q1 (quaternion multiplication)"
+"""
+    Lmult(q::UnitQuaternion)
+    Lmult(q::StaticVector{4})
+"""
 function Lmult(q::UnitQuaternion)
     @SMatrix [
         q.w -q.x -q.y -q.z;
@@ -341,8 +367,12 @@ function Lmult(q::UnitQuaternion)
     ]
 end
 Lmult(q::SVector{4}) = Lmult(UnitQuaternion(q, false))
+"""
+    Rmult(q::UnitQuaternion)
+    Rmult(q::StaticVector{4})
 
-"Rmult(q1)q2 return a vector equivalent to q2*q1 (quaternion multiplication)"
+`Rmult(q1)*SVector(q2)` return a vector equivalent to `q2*q1` (quaternion composition)
+"""
 function Rmult(q::UnitQuaternion)
     @SMatrix [
         q.w -q.x -q.y -q.z;
@@ -353,7 +383,11 @@ function Rmult(q::UnitQuaternion)
 end
 Rmult(q::SVector{4}) = Rmult(UnitQuaternion(q, false))
 
-"Tmat()q return a vector equivalent to inv(q)"
+"""
+    Tmat()
+
+`Tmat()*SVector(q)`return a vector equivalent to `inv(q)`, where `q` is a `UnitQuaternion`
+"""
 function Tmat()
     @SMatrix [
         1  0  0  0;
@@ -363,8 +397,12 @@ function Tmat()
     ]
 end
 
-"Vmat(q) SVector(q) returns the imaginary
-    (vector) part of the quaternion q (equivalent to vector(q))"
+"""
+    Vmat()
+
+`Vmat()*SVector(q)`` returns the imaginary
+    (vector) part of the quaternion `q` (equivalent to `vector(q)``)
+"""
 function Vmat()
     @SMatrix [
         0 1 0 0;
@@ -373,7 +411,14 @@ function Vmat()
     ]
 end
 
-""" `Hmat()*r` or `Hmat(r)` converts `r` into a pure quaternion, where r is 3-dimensional"""
+"""
+    Hmat()
+    Hmat(r::AbstractVector)
+
+`Hmat()*r` or `Hmat(r)` converts `r` into a pure quaternion, where `r` is 3-dimensional.
+
+`Hmat() == Vmat()'`
+"""
 function Hmat()
     @SMatrix [
         0 0 0;
@@ -391,7 +436,11 @@ end
 
 # ~~~~~~~~~~~~~~~ Useful Jacobians ~~~~~~~~~~~~~~~ #
 """
-Jacobian of `Lmult(q) QuatMap(ϕ)`, when ϕ is near zero. Useful for converting Jacobians from R⁴ to R³ and
+    ∇differential(q::UnitQuaternion)
+
+Jacobian of `Lmult(q) QuatMap(ϕ)`, when ϕ is near zero.
+
+Useful for converting Jacobians from R⁴ to R³ and
     correctly account for unit norm constraint. Jacobians for different
     differential quaternion parameterization are the same up to a constant.
 """
@@ -404,25 +453,42 @@ function ∇differential(q::UnitQuaternion)
     ]
 end
 
-"Jacobian of `(∂/∂ϕ Lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0"
-function ∇²differential(q::UnitQuaternion, b::SVector{4})
+"""
+    ∇²differential(q::UnitQuaternion, b::SVector{4})
+
+Jacobian of `(∂/∂ϕ Lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0
+"""
+function ∇²differential(q::UnitQuaternion, b::AbstractVector)
+    @assert length(b) == 4 "Length of `b` must be 4, got $(length(b))"
     b1 = -SVector(q)'b
     Diagonal(@SVector fill(b1,3))
 end
 
-"Jacobian of q*r with respect to the quaternion"
-function ∇rotate(q::UnitQuaternion{T,D}, r::SVector{3}) where {T,D}
+"""
+    ∇rotate(R::Rotation{3}, r::StaticVector)
+
+Jacobian of `R*r` with respect to the rotation
+"""
+function ∇rotate(q::UnitQuaternion{T,D}, r::StaticVector{3}) where {T,D}
     rhat = UnitQuaternion{D}(r)
     R = Rmult(q)
     2Vmat()*Rmult(q)'Rmult(rhat)
 end
 
-"Jacobian of q2*q1 with respect to q1"
+"""
+    ∇composition1(R2::Rotation{3}, R1::Rotation{3})
+
+Jacobian of `R2*R1` with respect to `R1`
+"""
 function ∇composition1(q2::UnitQuaternion, q1::UnitQuaternion)
     Lmult(q2)
 end
 
-"Jacobian of q2*q1 with respect to q2"
+"""
+    ∇composition2(R2::Rotation{3}, R1::Rotation{3})
+
+Jacobian of `R2*R1` with respect to `R2`
+"""
 function ∇composition2(q2::UnitQuaternion, q1::UnitQuaternion)
     Rmult(q1)
 end
