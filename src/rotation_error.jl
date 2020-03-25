@@ -32,9 +32,7 @@ end
 
 Convert the error back to a `UnitQuaternion` using the error map in `e`
 """ # QUESTION: maybe just use `UnitQuaternion`?
-function inverse_map(e::RotationError)::Rotation
-    e.map(e.err)
-end
+@inline forward_map(e::RotationError)::Rotation = inverse_map(e.map, e.err)
 
 """
     rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
@@ -48,7 +46,7 @@ If `error_map::IdentityMap`, then `SVector(R1\\R2)::SVector{3}` is used as the e
 this only works for three-parameter rotation representations such as `RodriguesParam` or `MRP`.
 """
 function rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
-    return RotationError(error_map(R2\R1), error_map)
+    return RotationError(inverse_map(error_map, R2\R1), error_map)
 end
 
 function rotation_error(R1::Rotation, R2::Rotation, error_map::IdentityMap)
@@ -86,7 +84,7 @@ Equivalent to
     R1 ⊕ e
 """
 function add_error(R1::Rotation, e::RotationError)
-    R1 * inverse_map(e)
+    R1 * forward_map(e)
 end
 
 function add_error(R1::R, e::RotationError{<:Any, IdentityMap}) where R <: Rotation

@@ -1,113 +1,99 @@
 using ForwardDiff
-import Rotations: jacobian, map_type
+import Rotations: jacobian, map_type, ErrorMap, forward_map, inverse_map
+import Rotations: CayleyMap, ExponentialMap, MRPMap, IdentityMap, QuatVecMap
 
 @testset "Quaternion Maps" begin
     ϕ = @SVector rand(3)
-    v = 0.1*@SVector rand(3)
+    v = 0.1 * @SVector rand(3)
     g = @SVector rand(3)
-    p = SVector(rand(MRP))
+    p = params(rand(MRP))
 
     @testset "Forward Maps" begin
-        # Exponential
-        @test ForwardDiff.jacobian(x->SVector(ExponentialMap()(x)),ϕ) ≈ jacobian(ExponentialMap(),ϕ)
 
-        ϕ = 1e-6*@SVector rand(3)
-        @test ForwardDiff.jacobian(x->SVector(ExponentialMap()(x)),ϕ) ≈ jacobian(ExponentialMap(),ϕ)
+        check_forward_jacobian(emap::ErrorMap, ϕ) =
+            ForwardDiff.jacobian(x -> params(forward_map(emap, x)), ϕ) ≈ jacobian(emap, ϕ)
+
+        # Exponential
+        @test check_forward_jacobian(ExponentialMap(), ϕ)
+
+        ϕ = 1e-6 * @SVector rand(3)
+        @test check_forward_jacobian(ExponentialMap(), ϕ)
 
         # Vector Part
-        @test ForwardDiff.jacobian(x->SVector(QuatVecMap()(x)),v) ≈
-            jacobian(QuatVecMap(), v)
+        @test check_forward_jacobian(QuatVecMap(), v)
 
         # Gibbs Vectors
-        @test ForwardDiff.jacobian(x->SVector(CayleyMap()(x)),g) ≈ jacobian(CayleyMap(), g)
+        @test check_forward_jacobian(CayleyMap(), g)
 
         # MRPs
-        @test ForwardDiff.jacobian(x->SVector(MRPMap()(x)),p) ≈
-            jacobian(MRPMap(), p)
+        @test check_forward_jacobian(MRPMap(), p)
 
-        μ0 = 1/Rotations.scaling(QuatVecMap)
-        jac_eye = [@SMatrix zeros(1,3); μ0*Diagonal(@SVector ones(3))];
-        @test jacobian(ExponentialMap(), p*1e-10) ≈ jac_eye
-        @test jacobian(MRPMap(), p*1e-10) ≈ jac_eye
-        @test jacobian(CayleyMap(), p*1e-10) ≈ jac_eye
-        @test jacobian(QuatVecMap(), p*1e-10) ≈ jac_eye
+        μ0 = 1 / Rotations.scaling(QuatVecMap)
+        jac_eye = [@SMatrix zeros(1, 3); μ0 * Diagonal(@SVector ones(3))]
+        @test jacobian(ExponentialMap(), p * 1e-10) ≈ jac_eye
+        @test jacobian(MRPMap(), p * 1e-10) ≈ jac_eye
+        @test jacobian(CayleyMap(), p * 1e-10) ≈ jac_eye
+        @test jacobian(QuatVecMap(), p * 1e-10) ≈ jac_eye
     end
 
 
 
-############################################################################################
-#                                 INVERSE RETRACTION MAPS
-############################################################################################
+    ############################################################################################
+    #                                 INVERSE RETRACTION MAPS
+    ############################################################################################
     @testset "Inverse Maps" begin
 
         # Exponential Map
-        Random.seed!(1);
+        Random.seed!(1)
+        function test_inverse_map(emap, invmap, q, ϕ)
+            μ = Rotations.scaling(emap)
+            @test inverse_map(emap, q) ≈ μ * invmap(params(q))
+            @test ForwardDiff.jacobian(invmap, params(q)) * μ ≈ jacobian(emap, q)
+            @test forward_map(emap, inverse_map(emap, q)) ≈ q
+            @test inverse_map(emap, forward_map(emap, ϕ)) ≈ ϕ
+            b = @SVector rand(3)
+            @test ForwardDiff.jacobian(
+                q -> jacobian(emap, UnitQuaternion(q, false))'b,
+                params(q),
+            ) ≈ Rotations.∇jacobian(emap, q, b)
+        end
+
         q = rand(UnitQuaternion)
-        q = UnitQuaternion(q)
-        qval = SVector(q)
-        @test ExponentialMap()(q) == Rotations.scaling(ExponentialMap())*logm(q)
-        @test ExponentialMap()(ExponentialMap()(q)) ≈ q
-        @test ExponentialMap()(ExponentialMap()(ϕ)) ≈ ϕ
 
         function invmap(q)
-            μ = Rotations.scaling(ExponentialMap())
             v = @SVector [q[2], q[3], q[4]]
             s = q[1]
             θ = norm(v)
-            M = μ*2atan(θ, s)/θ
-            return M*v
+            M = 2 * atan(θ, s) / θ
+            return M * v
         end
-        @test invmap(qval) ≈ Rotations.scaling(ExponentialMap())*logm(q)
+        test_inverse_map(ExponentialMap(), invmap, q, ϕ)
 
-        qI = QuatVecMap()(v*1e-5)
-        @test ForwardDiff.jacobian(invmap, qval) ≈ jacobian(ExponentialMap(), q)
-        @test ForwardDiff.jacobian(invmap, SVector(qI)) ≈ jacobian(ExponentialMap(), qI)
-
-        b = @SVector rand(3)
-        @test ForwardDiff.jacobian(q->jacobian(ExponentialMap(),
-            UnitQuaternion(q,false))'b, qval) ≈
-            Rotations.∇jacobian(ExponentialMap(), q, b)
+        qI = forward_map(ExponentialMap(), v * 1e-5)
+        @test ForwardDiff.jacobian(invmap, params(q)) * Rotations.scaling(ExponentialMap) ≈
+              jacobian(ExponentialMap(), q)
+        @test ForwardDiff.jacobian(invmap, params(qI)) *
+              Rotations.scaling(ExponentialMap) ≈ jacobian(ExponentialMap(), qI)
 
         # Vector Part
-        invmap(q) = @SVector [q[2], q[3], q[4]]
-        @test QuatVecMap()(q) ≈ Rotations.scaling(QuatVecMap)*invmap(qval)
-        @test ForwardDiff.jacobian(invmap, qval) ≈ jacobian(QuatVecMap(), q)
-        @test QuatVecMap()(QuatVecMap()(q)) ≈ q
-        @test QuatVecMap()(QuatVecMap()(v)) ≈ v
-
-        @test ForwardDiff.jacobian(q->jacobian(QuatVecMap(),
-            UnitQuaternion(q,false))'b, qval) ≈
-            Rotations.∇jacobian(QuatVecMap(), q, b)
+        invmap(q) = sign(q[1]) * @SVector [q[2], q[3], q[4]]
+        test_inverse_map(QuatVecMap(), invmap, q, v)
 
         # Cayley
-        invmap(q) = 1/q[1] * @SVector [q[2], q[3], q[4]]
-        @test CayleyMap()(q) ≈ Rotations.scaling(CayleyMap)*invmap(qval)
-        @test ForwardDiff.jacobian(invmap, qval) ≈ jacobian(CayleyMap(), q)
-        @test CayleyMap()(CayleyMap()(q)) ≈ q
-        @test CayleyMap()(CayleyMap()(g)) ≈ g
-
-        @test ForwardDiff.jacobian(q->jacobian(CayleyMap(),
-            UnitQuaternion(q,false))'b, qval) ≈
-            Rotations.∇jacobian(CayleyMap(), q, b)
+        invmap(q) = 1 / q[1] * @SVector [q[2], q[3], q[4]]
+        test_inverse_map(CayleyMap(), invmap, q, g)
 
         # MRP
-        invmap(q) = Rotations.scaling(MRPMap)/(1+q[1]) * @SVector [q[2], q[3], q[4]]
-        @test MRPMap()(q) ≈ invmap(qval)
-        @test ForwardDiff.jacobian(invmap, qval) ≈ jacobian(MRPMap(), q)
-        @test MRPMap()(MRPMap()(q)) ≈ q
-        @test MRPMap()(MRPMap()(p)) ≈ p
-
-        @test ForwardDiff.jacobian(q->jacobian(MRPMap(),
-            UnitQuaternion(q,false))'b, qval) ≈
-            Rotations.∇jacobian(MRPMap(), q, b)
+        invmap(q) = 1 / (1 + q[1]) * @SVector [q[2], q[3], q[4]]
+        test_inverse_map(MRPMap(), invmap, q, p)
 
         # Test near origin
         μ0 = Rotations.scaling(CayleyMap)
-        jacT_eye = [@SMatrix zeros(1,3); μ0*Diagonal(@SVector ones(3))]';
-        @test isapprox(jacobian(ExponentialMap(),qI), jacT_eye, atol=1e-5)
-        @test isapprox(jacobian(QuatVecMap(),qI), jacT_eye, atol=1e-5)
-        @test isapprox(jacobian(CayleyMap(),qI), jacT_eye, atol=1e-5)
-        @test isapprox(jacobian(MRPMap(),qI), jacT_eye, atol=1e-5)
+        jacT_eye = [@SMatrix zeros(1, 3); μ0 * Diagonal(@SVector ones(3))]'
+        @test isapprox(jacobian(ExponentialMap(), qI), jacT_eye, atol = 1e-5)
+        @test isapprox(jacobian(QuatVecMap(), qI), jacT_eye, atol = 1e-5)
+        @test isapprox(jacobian(CayleyMap(), qI), jacT_eye, atol = 1e-5)
+        @test isapprox(jacobian(MRPMap(), qI), jacT_eye, atol = 1e-5)
 
     end
 end
