@@ -20,7 +20,8 @@ include("principal_value.jl")
 
 include("rodrigues_params.jl")
 include("mrps.jl")
-
+include("error_maps.jl")
+include("rotation_error.jl")
 
 export
     Rotation, RotMatrix, RotMatrix2, RotMatrix3,

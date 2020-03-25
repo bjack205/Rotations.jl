@@ -1,6 +1,5 @@
 import Base: +, -, *, /, \, exp, log, ≈, ==, inv, conj
 
-abstract type QuatMap end
 
 """
     UnitQuaternion{T,D} <: Rotation
@@ -28,38 +27,31 @@ UnitQuaternion{T,D}(args...)
 where `args...` can be any of the following:
 - `w,x,y,z` specifying the scalar (real) part `w` and the vector (imaginary) part `x,y,z`
 - `AbstractVector` with elements `[w,x,y,z]` as the first 4 elements
-- `StaticVector{3}` with elements `[x,y,z]` and `w = 0`
 """
-struct UnitQuaternion{T,D<:QuatMap} <: Rotation{3,T}
+struct UnitQuaternion{T} <: Rotation{3,T}
     w::T
     x::T
     y::T
     z::T
 
-    @inline function UnitQuaternion{T,D}(w, x, y, z, normalize::Bool = true) where {T,D}
+    @inline function UnitQuaternion{T}(w, x, y, z, normalize::Bool = true) where T
         if normalize
             inorm = inv(sqrt(w*w + x*x + y*y + z*z))
-            new{T,D}(w*inorm, x*inorm, y*inorm, z*inorm)
+            new{T}(w*inorm, x*inorm, y*inorm, z*inorm)
         else
-            new{T,D}(w, x, y, z)
+            new{T}(w, x, y, z)
         end
     end
 
-    UnitQuaternion{T,D}(q::UnitQuaternion) where {T,D} = new{T,D}(q.w, q.x, q.y, q.z)
+    UnitQuaternion{T}(q::UnitQuaternion) where T = new{T}(q.w, q.x, q.y, q.z)
 end
 
-include("quaternion_maps.jl")
+# include("quaternion_maps.jl")
 
 # ~~~~~~~~~~~~~~~ Constructors ~~~~~~~~~~~~~~~ #
 # Use default map
 UnitQuaternion(w::W,x::X,y::Y,z::Z, normalize::Bool = true) where {W,X,Y,Z} =
-    UnitQuaternion{promote_type(W,X,Y,Z),DEFAULT_QMAP}(w,x,y,z, normalize)
-(::Type{UnitQuaternion{T}})(w, x, y, z, normalize::Bool = true) where T =
-    UnitQuaternion{T,DEFAULT_QMAP}(w, x, y, z, normalize)
-
-# Provide a map
-UnitQuaternion{D}(w::W,x::X,y::Y,z::Z, normalize::Bool = true) where {W,X,Y,Z,D<:QuatMap} =
-    UnitQuaternion{promote_type(W,X,Y,Z),D}(w,x,y,z, normalize)
+    UnitQuaternion{promote_type(W,X,Y,Z)}(w,x,y,z, normalize)
 
 # Pass in Vectors
 @inline function (::Type{Q})(q::AbstractVector, normalize::Bool = true) where Q <: UnitQuaternion
@@ -68,12 +60,9 @@ UnitQuaternion{D}(w::W,x::X,y::Y,z::Z, normalize::Bool = true) where {W,X,Y,Z,D<
 end
 @inline (::Type{Q})(q::StaticVector{4}, normalize::Bool = true) where Q <: UnitQuaternion =
     Q(q[1], q[2], q[3], q[4], normalize)
-(::Type{Q})(q::StaticVector{3}, normalize::Bool = true) where Q <: UnitQuaternion =
-    Q(zero(eltype(q)), q[1], q[2], q[3], normalize)
 
 # Copy constructors
 UnitQuaternion(q::UnitQuaternion) = q
-UnitQuaternion{D}(q::UnitQuaternion) where D = UnitQuaternion{D}(q.w, q.x, q.y, q.z)
 
 # UnitQuaternion <=> Quat
 (::Type{Q})(q::Quat) where Q <: UnitQuaternion = Q(q.w, q.x, q.y, q.z, false)
@@ -204,21 +193,18 @@ function Base.Tuple(q::UnitQuaternion)
 end
 
 # ~~~~~~~~~~~~~~~ Getters ~~~~~~~~~~~~~~~ #
-map_type(::UnitQuaternion{T,D}) where {T,D} = D
-map_type(::Type{UnitQuaternion{T,D}}) where {T,D} = D
+@inline map_type(q::UnitQuaternion) = q.map
 
-scalar(q::UnitQuaternion) = q.w
-vector(q::UnitQuaternion) = SVector{3}(q.x, q.y, q.z)
+@inline scalar(q::UnitQuaternion) = q.w
+@inline vector(q::UnitQuaternion) = SVector{3}(q.x, q.y, q.z)
 
-SVector(q::UnitQuaternion) = SVector{4}(q.w, q.x, q.y, q.z)
+@inline SVector(q::UnitQuaternion) = SVector{4}(q.w, q.x, q.y, q.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #
-Base.rand(::Type{<:UnitQuaternion{T,D}}) where {T,D} =
-    normalize(UnitQuaternion{T,D}(randn(T), randn(T), randn(T), randn(T)))
-Base.rand(::Type{UnitQuaternion{T}}) where T = Base.rand(UnitQuaternion{T,DEFAULT_QMAP})
-Base.rand(::Type{UnitQuaternion}) = Base.rand(UnitQuaternion{Float64,DEFAULT_QMAP})
-Base.zero(::Type{Q}) where Q<:UnitQuaternion = Q(I)
-Base.zero(q::Q) where Q<:UnitQuaternion = Q(I)
+Base.rand(::Type{<:UnitQuaternion{T}}) where T =
+    normalize(UnitQuaternion{T}(randn(T), randn(T), randn(T), randn(T)))
+Base.rand(::Type{UnitQuaternion}) = Base.rand(UnitQuaternion{Float64})
+@inline Base.zero(::Type{Q}) where Q <: UnitQuaternion = Q(1.0, 0.0, 0.0, 0.0)
 @inline Base.one(::Type{Q}) where Q <: UnitQuaternion = Q(1.0, 0.0, 0.0, 0.0)
 
 
@@ -242,6 +228,14 @@ end
 (::Type{Q})(I::UniformScaling) where Q <: UnitQuaternion = one(Q)
 
 # Exponentials and Logarithms
+function pure_quaternion(v::AbstractVector)
+    check_length(v, 3)
+    UnitQuaternion(zero(eltype(v)), v[1], v[2], v[3], false)
+end
+
+@inline pure_quaternion(x::Real, y::Real, z::Real) =
+    UnitQuaternion(0.0, x, y, z, false)
+
 function exp(q::Q) where Q <: UnitQuaternion
     θ = vecnorm(q)
     sθ,cθ = sincos(θ)
@@ -255,7 +249,7 @@ function expm(ϕ::AbstractVector)
     θ = norm(ϕ)
     sθ,cθ = sincos(θ/2)
     M = 1//2 *sinc(θ/π/2)
-    UnitQuaternion{ExponentialMap}(cθ, ϕ[1]*M, ϕ[2]*M, ϕ[3]*M, false)
+    UnitQuaternion(cθ, ϕ[1]*M, ϕ[2]*M, ϕ[3]*M, false)
 end
 
 function log(q::Q, eps=1e-6) where Q <: UnitQuaternion
@@ -266,7 +260,7 @@ function log(q::Q, eps=1e-6) where Q <: UnitQuaternion
     else
         M = (1-(θ^2/(3q.w^2)))/q.w
     end
-    Q(0.0, q.x*M, q.y*M, q.z*M, false)
+    pure_quaternion(M*vector(q))
 end
 
 function logm(q::UnitQuaternion)
@@ -288,13 +282,12 @@ rmult(w) * SVector(q)
 
 Sets the output mapping equal to the mapping of `w`
 """
-function (*)(q::UnitQuaternion{T1}, w::UnitQuaternion{T2,D2}) where {T1,T2,D2}
+function (*)(q::UnitQuaternion{T1}, w::UnitQuaternion{T2}) where {T1,T2}
     T = promote_type(T1, T2)
-    D = D2  # use type of right-hand quaternion as the resulting map type
-    UnitQuaternion{T,D}(q.w * w.w - q.x * w.x - q.y * w.y - q.z * w.z,
-                        q.w * w.x + q.x * w.w + q.y * w.z - q.z * w.y,
-                        q.w * w.y - q.x * w.z + q.y * w.w + q.z * w.x,
-                        q.w * w.z + q.x * w.y - q.y * w.x + q.z * w.w, false)
+    UnitQuaternion{T}(q.w * w.w - q.x * w.x - q.y * w.y - q.z * w.z,
+                      q.w * w.x + q.x * w.w + q.y * w.z - q.z * w.y,
+                      q.w * w.y - q.x * w.z + q.y * w.w + q.z * w.x,
+                      q.w * w.z + q.x * w.y - q.y * w.x + q.z * w.w, false)
 end
 
 """
@@ -333,15 +326,15 @@ end
 (\)(q::UnitQuaternion, r::SVector{3}) = conj(q)*r
 
 
-# ~~~~~~~~~~~~~~~ Quaternion Differences ~~~~~~~~~~~~~~~ #
-function (⊖)(q::UnitQuaternion{<:Any,D}, q0::UnitQuaternion) where D
-    D(q0\q)
-end
-
-function (⊖)(q::UnitQuaternion{<:Any,IdentityMap}, q0::UnitQuaternion)
-    SVector(q) - SVector(q0)
-    # return SVector(q0\q)
-end
+# # ~~~~~~~~~~~~~~~ Quaternion Differences ~~~~~~~~~~~~~~~ #
+# function (⊖)(q::UnitQuaternion{<:Any,D}, q0::UnitQuaternion) where D
+#     D(q0\q)
+# end
+#
+# function (⊖)(q::UnitQuaternion{<:Any,IdentityMap}, q0::UnitQuaternion)
+#     SVector(q) - SVector(q0)
+#     # return SVector(q0\q)
+# end
 
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ $
 """
@@ -349,6 +342,10 @@ end
 
 The time derivative of the rotation R, according to the definition
     ``Ṙ = \\lim_{Δt → 0} \\frac{q(t + Δt) - q(t)}{Δt}``
+where `ω` is the angular velocity.
+
+The kinematics are extremely useful when computing the dynamics of rigid bodies, since
+`Ṙ = kinematics(R,ω)` is the first-order ODE for the evolution of the attitude dynamics.
 """
 function kinematics(q::Q, ω::AbstractVector) where Q <: UnitQuaternion
     1//2 * SVector(q*Q(0.0, ω[1], ω[2], ω[3]))

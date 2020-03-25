@@ -91,8 +91,12 @@ end
 
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ #
 function kinematics(p::MRP, ω)
+    # From Fundamentals of Spacecraft Attitude Determination and Control, eq (3.24)
+    #     here A = (I(3) + 2*(skew(p)^2 + skew(p))/(1+p'p)) * (1+p'p)
+    #            = √R * (1 + p'p)
+    #     where √R*√R = (√R')*(√R') = RotMatrix(p)
     p = SVector(p)
-    A = @SMatrix [
+    A = SA[  #
         1 + p[1]^2 - p[2]^2 - p[3]^2  2(p[1]*p[2] - p[3])      2(p[1]*p[3] + p[2]);
         2(p[2]*p[1] + p[3])            1-p[1]^2+p[2]^2-p[3]^2   2(p[2]*p[3] - p[1]);
         2(p[3]*p[1] - p[2])            2(p[3]*p[2] + p[1])      1-p[1]^2-p[2]^2+p[3]^2]

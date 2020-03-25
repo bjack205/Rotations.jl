@@ -32,7 +32,7 @@ end
 end
 
 function skew(v::AbstractVector)
-    @assert length(v) == 3
+    check_length(v, 3)
     @SMatrix [0   -v[3]  v[2];
               v[3] 0    -v[1];
              -v[2] v[1]  0]

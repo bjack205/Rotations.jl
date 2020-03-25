@@ -1,5 +1,6 @@
 using ForwardDiff
-import Rotations: ∇rotate, ∇composition1, ∇composition2
+import Rotations: ∇rotate, ∇composition1, ∇composition2, skew
+
 
 @testset "$R basic tests" for R in (RodriguesParam, MRP)
 
