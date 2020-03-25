@@ -5,8 +5,8 @@ using Statistics
 using Random
 using Test
 
-StaticArrays.SVector(q::Quat) = @SVector [q.w, q.x, q.y, q.z]
-StaticArrays.SVector(spq::SPQuat) = @SVector [spq.x, spq.y, spq.z]
+Rotations.params(q::Quat) = @SVector [q.w, q.x, q.y, q.z]
+Rotations.params(spq::SPQuat) = @SVector [spq.x, spq.y, spq.z]
 
 const comp = BenchmarkGroup()
 comp["composition"] = BenchmarkGroup()
@@ -40,12 +40,12 @@ comp["rotation"]["UnitQuaternion"] = @benchmarkable for i = 1:100; $r = $u1*$r; 
 # ~~~~~~~~~~~~~~~~~~~~ MRP vs SPQuat ~~~~~~~~~~~~~~~~~~~~ #
 p1 = rand(MRP)
 p2 = rand(MRP)
-s1 = SPQuat(SVector(p1)...)
-s2 = SPQuat(SVector(p2)...)
+s1 = SPQuat(params(p1)...)
+s2 = SPQuat(params(p2)...)
 @test p1 ≈ s1
 @test p2 ≈ s2
-@test SVector(p1) ≈ SVector(s1)
-@test SVector(p2) ≈ SVector(s2)
+@test params(p1) ≈ params(s1)
+@test params(p2) ≈ params(s2)
 
 # Test composition
 @test p2*p1 ≈ s2*s1

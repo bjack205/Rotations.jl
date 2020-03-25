@@ -50,9 +50,12 @@ export
     rotation_between,
 
     # principal value of a rotation
-    principal_value
+    principal_value,
 
     # derivatives (names clash with ForwarDiff?)
     #jacobian, hessian
+
+    # get the internal parameters
+    params
 
 end # module

@@ -6,8 +6,9 @@ using ForwardDiff
 using BenchmarkTools
 
 import Rotations: jacobian, ∇rotate, ∇composition1, ∇composition2
-import Rotations: UnitQuaternion, CayleyMap, ExponentialMap, MRPMap, IdentityMap, QuatVecMap,
-    map_type, expm, logm, ⊖, kinematics, pure_quaternion
+import Rotations: UnitQuaternion, CayleyMap, ExponentialMap, MRPMap,
+    IdentityMap, QuatVecMap, map_type, expm, logm, ⊖, kinematics, pure_quaternion,
+    inverse_map, forward_map
 import Rotations: vmat, rmult, lmult, hmat, tmat
 
 @testset "Unit Quaternions" begin
@@ -20,8 +21,8 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     @test UnitQuaternion(1.0, 0.0, 0.0, 0.0) isa UnitQuaternion{Float64}
     @test UnitQuaternion(1.0, 0, 0, 0) isa UnitQuaternion{Float64}
     @test UnitQuaternion(1.0, 0, 0, 0) isa UnitQuaternion{Float64}
-    @test UnitQuaternion(1,0,0,0) isa UnitQuaternion{Int}
-    @test UnitQuaternion(1.0f0, 0,0,0) isa UnitQuaternion{Float32}
+    @test UnitQuaternion(1, 0, 0, 0) isa UnitQuaternion{Int}
+    @test UnitQuaternion(1.0f0, 0, 0, 0) isa UnitQuaternion{Float32}
 
     q = normalize(@SVector rand(4))
     q32 = SVector{4,Float32}(q)
@@ -34,13 +35,13 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     @test pure_quaternion(r32) isa UnitQuaternion{Float32}
     @test pure_quaternion(r).w == 0
 
-    @test UnitQuaternion{Float64}(1,0,0,0) isa UnitQuaternion{Float64}
-    @test UnitQuaternion{Float32}(1,0,0,0) isa UnitQuaternion{Float32}
-    @test UnitQuaternion{Float32}(1.0,0,0,0) isa UnitQuaternion{Float32}
-    @test UnitQuaternion{Float64}(1f0,0,0,0) isa UnitQuaternion{Float64}
+    @test UnitQuaternion{Float64}(1, 0, 0, 0) isa UnitQuaternion{Float64}
+    @test UnitQuaternion{Float32}(1, 0, 0, 0) isa UnitQuaternion{Float32}
+    @test UnitQuaternion{Float32}(1.0, 0, 0, 0) isa UnitQuaternion{Float32}
+    @test UnitQuaternion{Float64}(1f0, 0, 0, 0) isa UnitQuaternion{Float64}
 
     # normalization
-    @test UnitQuaternion(2.,0,0,0,true) == one(UnitQuaternion)
+    @test UnitQuaternion(2.0, 0, 0, 0, true) == one(UnitQuaternion)
     @test UnitQuaternion(2q, true) ≈ UnitQuaternion(q)
 
     # Copy constructors
@@ -56,78 +57,80 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     # Test math
     @test UnitQuaternion(I) isa UnitQuaternion{Float64}
 
-    ϕ = ExponentialMap()(q1)
-    @test expm(ϕ*2) ≈ q1
+    ϕ = inverse_map(ExponentialMap(), q1)
+    @test expm(ϕ * 2) ≈ q1
     q = Rotations.pure_quaternion(ϕ)
     @test exp(q) ≈ q1
 
-    q = UnitQuaternion((@SVector [1,2,3,4.]), false)
-    @test 2*q == UnitQuaternion((@SVector [2,4,6,8.]), false)
-    @test q*2 == UnitQuaternion((@SVector [2,4,6,8.]), false)
+    q = UnitQuaternion((@SVector [1, 2, 3, 4.0]), false)
+    @test 2 * q == UnitQuaternion((@SVector [2, 4, 6, 8.0]), false)
+    @test q * 2 == UnitQuaternion((@SVector [2, 4, 6, 8.0]), false)
 
     # Axis-angle
-    ϕ = 0.1*@SVector [1,0,0]
+    ϕ = 0.1 * @SVector [1, 0, 0]
     q = expm(ϕ)
     @test logm(expm(ϕ)) ≈ ϕ
     @test expm(logm(q1)) ≈ q1
     @test rotation_angle(q) ≈ 0.1
-    @test rotation_axis(q) == [1,0,0]
+    @test rotation_axis(q) == [1, 0, 0]
 
-    @test norm(q1 * ExponentialMap()(ϕ)) ≈ 1
+    @test norm(q1 * forward_map(ExponentialMap(), ϕ)) ≈ 1
     @test q1 ⊖ q2 isa StaticVector{3}
-    @test (q1 * CayleyMap()(ϕ)) ⊖ q1 ≈ ϕ
+    @test (q1 * forward_map(CayleyMap(), ϕ)) ⊖ q1 ≈ ϕ
 
 
     # Test inverses
-    q3 = q2*q1
-    @test q2\q3 ≈ q1
-    @test q3/q1 ≈ q2
-    @test inv(q1)*r ≈ q1\r
-    @test r ≈ q3\(q2*q1*r)
-    @test q3 ⊖ q2 ≈ CayleyMap()(q1)
+    q3 = q2 * q1
+    @test q2 \ q3 ≈ q1
+    @test q3 / q1 ≈ q2
+    @test inv(q1) * r ≈ q1 \ r
+    @test r ≈ q3 \ (q2 * q1 * r)
+    @test q3 ⊖ q2 ≈ inverse_map(CayleyMap(), q1)
 
     q = q1
     rhat = Rotations.pure_quaternion(r)
-    @test q*r ≈ vmat()*lmult(q)*rmult(q)'*vmat()'r
-    @test q*r ≈ vmat()*lmult(q)*rmult(q)'*hmat(r)
-    @test q*r ≈ vmat()*lmult(q)*lmult(rhat)*tmat()*SVector(q)
-    @test q*r ≈ vmat()*rmult(q)'*rmult(rhat)*SVector(q)
-    @test q*r ≈ hmat()'rmult(q)'*rmult(rhat)*SVector(q)
+    @test q * r ≈ vmat() * lmult(q) * rmult(q)' * vmat()'r
+    @test q * r ≈ vmat() * lmult(q) * rmult(q)' * hmat(r)
+    @test q * r ≈ vmat() * lmult(q) * lmult(rhat) * tmat() * params(q)
+    @test q * r ≈ vmat() * rmult(q)' * rmult(rhat) * params(q)
+    @test q * r ≈ hmat()' * rmult(q)' * rmult(rhat) * params(q)
 
-    @test rmult(SVector(q)) == rmult(q)
-    @test lmult(SVector(q)) == lmult(q)
-    @test hmat(r) == SVector(pure_quaternion(r))
+    @test rmult(params(q)) == rmult(q)
+    @test lmult(params(q)) == lmult(q)
+    @test hmat(r) == params(pure_quaternion(r))
 
-    @test kinematics(q1,ω) isa SVector{4}
+    @test kinematics(q1, ω) ≈ 0.5 *params(q1*pure_quaternion(ω))
 
-    @test ForwardDiff.jacobian(q->UnitQuaternion(q,false)*r,SVector(q)) ≈ ∇rotate(q,r)
+    @test ForwardDiff.jacobian(q -> UnitQuaternion(q, false) * r, params(q)) ≈
+          ∇rotate(q, r)
 
-    @test ForwardDiff.jacobian(q->SVector(q2*UnitQuaternion(q,false)),SVector(q1)) ≈
-        ∇composition1(q2,q1)
-    @test ForwardDiff.jacobian(q->SVector(UnitQuaternion(q,false)*q1),SVector(q2)) ≈
-        ∇composition2(q2,q1)
+    @test ForwardDiff.jacobian(q -> params(q2 * UnitQuaternion(q, false)), params(q1)) ≈
+          ∇composition1(q2, q1)
+    @test ForwardDiff.jacobian(q -> params(UnitQuaternion(q, false) * q1), params(q2)) ≈
+          ∇composition2(q2, q1)
 
     b = @SVector rand(4)
-    qval = SVector(q1)
-    ForwardDiff.jacobian(q->∇composition1(q2,UnitQuaternion(q))'b, @SVector [1,0,0,0.])
-    diffcomp =  ϕ->SVector(q2*CayleyMap()(ϕ))
+    qval = params(q1)
+    ForwardDiff.jacobian(q -> ∇composition1(q2, UnitQuaternion(q))'b,
+        @SVector [1, 0, 0, 0.0,])
+    diffcomp = ϕ -> params(q2 * forward_map(CayleyMap(), ϕ))
     ∇diffcomp(ϕ) = ForwardDiff.jacobian(diffcomp, ϕ)
     @test ∇diffcomp(@SVector zeros(3)) ≈ Rotations.∇differential(q2)
-    @test ForwardDiff.jacobian(ϕ->∇diffcomp(ϕ)'b, @SVector zeros(3)) ≈
-        Rotations.∇²differential(q2, b)
+    @test ForwardDiff.jacobian(ϕ -> ∇diffcomp(ϕ)'b, @SVector zeros(3)) ≈
+          Rotations.∇²differential(q2, b)
 
-    @test lmult(q) ≈ ∇composition1(q,q2)
+    @test lmult(q) ≈ ∇composition1(q, q2)
 
     ϕ = @SVector zeros(3)
-    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(QuatVecMap(),ϕ)
-    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(ExponentialMap(),ϕ)
-    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(CayleyMap(),ϕ)
-    @test Rotations.∇differential(q) ≈ lmult(q)*jacobian(MRPMap(),ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q) * jacobian(QuatVecMap(), ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q) * jacobian(ExponentialMap(), ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q) * jacobian(CayleyMap(), ϕ)
+    @test Rotations.∇differential(q) ≈ lmult(q) * jacobian(MRPMap(), ϕ)
 
 
     # Check ops with Float32
-    ϕ = SA_F32[1,2,3]
-    @test expm(SA_F32[1,2,3]) isa UnitQuaternion{Float32}
+    ϕ = SA_F32[1, 2, 3]
+    @test expm(SA_F32[1, 2, 3]) isa UnitQuaternion{Float32}
 
     q32 = rand(UnitQuaternion{Float32})
     @test log(q32) isa UnitQuaternion{Float32}
@@ -141,7 +144,7 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     @test Rotations.kinematics(q, ω) isa SVector{4,Float64}
     @test Rotations.kinematics(q32, ω32) isa SVector{4,Float32}
     @test Rotations.kinematics(q32, ω) isa SVector{4,Float32}
-    @test Rotations.kinematics(q32, [1,2,3]) isa SVector{4,Float32}
+    @test Rotations.kinematics(q32, [1, 2, 3]) isa SVector{4,Float32}
 
     @test eltype(lmult(q32)) == Float32
     @test eltype(lmult(q)) == Float64

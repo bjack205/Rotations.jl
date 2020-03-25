@@ -25,7 +25,7 @@ import Rotations: ∇rotate, ∇composition1, ∇composition2, skew
     @test rand(R{Float32}) isa R{Float32}
     @test one(R) isa R{Float64}
     @test one(R{Float32}) isa R{Float32}
-    @test SVector(one(R)) === @SVector [0,0,0.]
+    @test params(one(R)) === @SVector [0,0,0.]
 
 
     # Math operations
@@ -37,18 +37,18 @@ import Rotations: ∇rotate, ∇composition1, ∇composition2, skew
     g1 = rand(R)
     g2 = rand(R)
     r = @SVector rand(3)
-    @test ForwardDiff.jacobian(g->R(g)*r, SVector(g1)) ≈ ∇rotate(g1, r)
+    @test ForwardDiff.jacobian(g->R(g)*r, params(g1)) ≈ ∇rotate(g1, r)
 
     function compose(g2,g1)
-        SVector(R(g2)*R(g1))
+        params(R(g2)*R(g1))
     end
-    @test ForwardDiff.jacobian(g->compose(SVector(g2),g), SVector(g1)) ≈ ∇composition1(g2,g1)
-    @test ForwardDiff.jacobian(g->compose(g,SVector(g1)), SVector(g2)) ≈ ∇composition2(g2,g1)
+    @test ForwardDiff.jacobian(g->compose(params(g2),g), params(g1)) ≈ ∇composition1(g2,g1)
+    @test ForwardDiff.jacobian(g->compose(g,params(g1)), params(g2)) ≈ ∇composition2(g2,g1)
 
     g0 = R{Float64}(0,0,0)
     @test ∇composition1(g2, g0) ≈ Rotations.∇differential(g2)
 
-    gval = SVector(g1)
+    gval = params(g1)
     b = @SVector rand(3)
     @test ForwardDiff.jacobian(g->∇composition1(g2,R(g))'b, gval) ≈
         Rotations.∇²composition1(g2,g1,b)

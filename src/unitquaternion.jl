@@ -1,6 +1,5 @@
 import Base: +, -, *, /, \, exp, log, ≈, ==, inv, conj
 
-
 """
     UnitQuaternion{T,D} <: Rotation
 
@@ -38,8 +37,8 @@ end
 # ~~~~~~~~~~~~~~~ Constructors ~~~~~~~~~~~~~~~ #
 # Use default map
 function UnitQuaternion(w,x,y,z, normalize::Bool = true)
-    promote(w,x,y,z)
-    UnitQuaternion{eltype(promote)}(w,x,y,z, normalize)
+    types = promote(w,x,y,z)
+    UnitQuaternion{eltype(types)}(w,x,y,z, normalize)
 end
 
 # Pass in Vectors
@@ -187,7 +186,7 @@ end
 @inline scalar(q::UnitQuaternion) = q.w
 @inline vector(q::UnitQuaternion) = SVector{3}(q.x, q.y, q.z)
 
-@inline SVector(q::UnitQuaternion) = SVector{4}(q.w, q.x, q.y, q.z)
+@inline params(q::UnitQuaternion) = SVector{4}(q.w, q.x, q.y, q.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #
 Base.rand(::Type{<:UnitQuaternion{T}}) where T =
@@ -217,6 +216,12 @@ end
 (::Type{Q})(I::UniformScaling) where Q <: UnitQuaternion = one(Q)
 
 # Exponentials and Logarithms
+"""
+    pure_quaternion(v::AbstractVector)
+    pure_quaternion(x, y, z)
+
+Create a `UnitQuaternion` with zero scalar part (i.e. `q.w == 0`).
+"""
 function pure_quaternion(v::AbstractVector)
     check_length(v, 3)
     UnitQuaternion(zero(eltype(v)), v[1], v[2], v[3], false)
@@ -329,14 +334,24 @@ end
     kinematics(R::Rotation{3}, ω::AbstractVector)
 
 The time derivative of the rotation R, according to the definition
-    ``Ṙ = \\lim_{Δt → 0} \\frac{q(t + Δt) - q(t)}{Δt}``
-where `ω` is the angular velocity.
+
+``Ṙ = \\lim_{Δt → 0} \\frac{R(t + Δt) - R(t)}{Δt}``
+
+where `ω` is the angular velocity. This is equivalent to
+
+``Ṙ = \\lim_{Δt → 0} \\frac{R δR - R}{Δt}``
+
+where ``δR`` is some small rotation, parameterized by a small rotation ``δθ`` about
+an axis ``r``, such that ``lim_{Δt → 0} \\frac{δθ r}{Δt} = ω``
 
 The kinematics are extremely useful when computing the dynamics of rigid bodies, since
 `Ṙ = kinematics(R,ω)` is the first-order ODE for the evolution of the attitude dynamics.
+
+See "Fundamentals of Spacecraft Attitude Determination and Control" by Markley and Crassidis
+Sections 3.1-3.2 for more details.
 """
 function kinematics(q::Q, ω::AbstractVector) where Q <: UnitQuaternion
-    1//2 * SVector(q*Q(0.0, ω[1], ω[2], ω[3]))
+    1//2 * params(q*Q(0.0, ω[1], ω[2], ω[3], false))
 end
 
 # ~~~~~~~~~~~~~~~ Linear Algebraic Conversions ~~~~~~~~~~~~~~~ #
@@ -449,7 +464,7 @@ Jacobian of `(∂/∂ϕ lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0
 """
 function ∇²differential(q::UnitQuaternion, b::AbstractVector)
     check_length(b, 4)
-    b1 = -SVector(q)'b
+    b1 = -params(q)'b
     Diagonal(@SVector fill(b1,3))
 end
 

@@ -20,7 +20,7 @@ RodriguesParam(x::X, y::Y, z::Z) where {X,Y,Z} = RodriguesParam{promote_type(X,Y
 (::Type{RP})(g::StaticVector) where RP<:RodriguesParam = RP(g[1], g[2], g[3])
 
 # ~~~~~~~~~~~~~~~ Conversions ~~~~~~~~~~~~~~~ #
-SVector(g::RodriguesParam) = SVector{3}(g.x, g.y, g.z)
+params(g::RodriguesParam) = SVector{3}(g.x, g.y, g.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #
 @inline Base.rand(::Type{RP}) where RP <: RodriguesParam = RP(rand(UnitQuaternion))
@@ -48,20 +48,20 @@ LinearAlgebra.norm(g::RodriguesParam) = sqrt(g.x^2 + g.y^2 + g.z^2)
 
 # ~~~~~~~~~~~~~~~ Composition ~~~~~~~~~~~~~~~ #
 function (*)(g2::RodriguesParam, g1::RodriguesParam)
-    g2 = SVector(g2)
-    g1 = SVector(g1)
+    g2 = params(g2)
+    g1 = params(g1)
     RodriguesParam((g2+g1 + g2 × g1)/(1-g2'g1))
 end
 
 function (\)(g1::RodriguesParam, g2::RodriguesParam)
-    g2 = SVector(g2)
-    g1 = SVector(g1)
+    g2 = params(g2)
+    g1 = params(g1)
     RodriguesParam((g2-g1 + g2 × g1)/(1+g1'g2))
 end
 
 function (/)(g1::RodriguesParam, g2::RodriguesParam)
-    g2 = SVector(g2)
-    g1 = SVector(g1)
+    g2 = params(g2)
+    g1 = params(g1)
     RodriguesParam((g1-g2 + g2 × g1)/(1+g1'g2))
 end
 
@@ -73,14 +73,14 @@ end
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ #
 function kinematics(g::RodriguesParam, ω)
     check_length(ω, 3)
-    g = SVector(g)
+    g = params(g)
     0.5*(I + skew(g) + g*g')*ω
 end
 
 
 function ∇rotate(g0::RodriguesParam, r)
     check_length(r, 3)
-    g = SVector(g0)
+    g = params(g0)
     ghat = skew(g)
     n1 = 1/(1 + g'g)
     gxr = cross(g,r) + r
@@ -90,8 +90,8 @@ function ∇rotate(g0::RodriguesParam, r)
 end
 
 function ∇composition1(g2::RodriguesParam, g1::RodriguesParam)
-    g2 = SVector(g2)
-    g1 = SVector(g1)
+    g2 = params(g2)
+    g1 = params(g1)
 
     N = g2 + g1 + g2 × g1
     D = 1/(1 - g2'g1)
@@ -100,8 +100,8 @@ end
 
 function ∇²composition1(g2::RodriguesParam, g1::RodriguesParam, b::AbstractVector)
     check_length(b, 3)
-    g2 = SVector(g2)
-    g1 = SVector(g1)
+    g2 = params(g2)
+    g1 = params(g1)
 
     N = g2 + g1 + g2 × g1  # 3x1
     D = 1/(1 - g2'g1)  # scalar
@@ -111,8 +111,8 @@ function ∇²composition1(g2::RodriguesParam, g1::RodriguesParam, b::AbstractVe
 end
 
 function ∇composition2(g2::RodriguesParam, g1::RodriguesParam)
-    g2 = SVector(g2)
-    g1 = SVector(g1)
+    g2 = params(g2)
+    g1 = params(g1)
 
     N = g2 + g1 + g2 × g1
     D = 1/(1 - g2'g1)
@@ -120,12 +120,12 @@ function ∇composition2(g2::RodriguesParam, g1::RodriguesParam)
 end
 
 function ∇differential(g::RodriguesParam)
-    g = SVector(g)
+    g = params(g)
     (I + skew(g) + g*g')
 end
 
 function ∇²differential(g::RodriguesParam, b::AbstractVector)
     check_length(b, 3)
-    g = SVector(g)
+    g = params(g)
     return g*b'*(2g*g' + I + skew(g)) + (I - skew(g))*b*g'
 end

@@ -21,7 +21,7 @@ MRP(x::X, y::Y, z::Z) where {X,Y,Z} = MRP{promote_type(X,Y,Z)}(x, y, z)
 (::Type{M})(g::StaticVector) where M<:MRP= M(g[1], g[2], g[3])
 
 # ~~~~~~~~~~~~~~~ Conversions ~~~~~~~~~~~~~~~ #
-SVector(g::MRP) = SVector{3}(g.x, g.y, g.z)
+params(g::MRP) = SVector{3}(g.x, g.y, g.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #
 Base.rand(::Type{RP}) where RP <: MRP = RP(rand(UnitQuaternion))
@@ -50,12 +50,12 @@ LinearAlgebra.norm(p::MRP) = sqrt(p.x^2 + p.y^2 + p.z^2)
 
 # ~~~~~~~~~~~~~~~ Composition ~~~~~~~~~~~~~~~ #
 function (*)(p2::MRP, p1::MRP)
-    p2, p1 = SVector(p2), SVector(p1)
+    p2, p1 = params(p2), params(p1)
     MRP(((1-p2'p2)*p1 + (1-p1'p1)*p2 - cross(2p1, p2) ) / (1+p1'p1*p2'p2 - 2p1'p2))
 end
 
 function (\)(p1::MRP, p2::MRP)
-    p1,p2 = SVector(p1), SVector(p2)
+    p1,p2 = params(p1), params(p2)
     n1,n2 = p1'p1, p2'p2
     θ = 1/((1+n1)*(1+n2))
     s1,s2 = (1-n1), (1-n2)
@@ -72,7 +72,7 @@ function (/)(p1::MRP, p2::MRP)
     n1,n2 = norm2(p1),   norm2(p2)
     θ = 1/((1+n1)*(1+n2))
     s1,s2 = (1-n1), (1-n2)
-    p1,p2 = SVector(p1), SVector(p2)
+    p1,p2 = params(p1), params(p2)
     v1 =  2p1
     v2 = -2p2
     s = s1*s2 - v1'v2
@@ -95,7 +95,7 @@ function kinematics(p::MRP, ω)
     #     here A = (I(3) + 2*(skew(p)^2 + skew(p))/(1+p'p)) * (1+p'p)
     #            = √R * (1 + p'p)
     #     where √R*√R = (√R')*(√R') = RotMatrix(p)
-    p = SVector(p)
+    p = params(p)
     A = SA[  #
         1 + p[1]^2 - p[2]^2 - p[3]^2  2(p[1]*p[2] - p[3])      2(p[1]*p[3] + p[2]);
         2(p[2]*p[1] + p[3])            1-p[1]^2+p[2]^2-p[3]^2   2(p[2]*p[3] - p[1]);
@@ -106,13 +106,13 @@ end
 
 # ~~~~~~~~~~~~~~~ Useful Jacobians ~~~~~~~~~~~~~~~ #
 function ∇rotate(p::MRP, r)
-    p = SVector(p)
+    p = params(p)
     4( (1-p'p)*skew(r)*(4p*p'/(1+p'p) - I) - (4/(1+p'p)*skew(p) + I)*2*skew(p)*r*p'
       - 2*(skew(p)*skew(r) + skew(skew(p)*r)))/(1+p'p)^2
 end
 
 function ∇composition2(p2::MRP, p1::MRP)
-    p2,p1 = SVector(p2), SVector(p1)
+    p2,p1 = params(p2), params(p1)
     n1 = p1'p1
     n2 = p2'p2
     D = 1 / (1+n1*n2 - 2p1'p2)
@@ -123,7 +123,7 @@ function ∇composition2(p2::MRP, p1::MRP)
 end
 
 function ∇composition1(p2::MRP, p1::MRP)
-    p2,p1 = SVector(p2), SVector(p1)
+    p2,p1 = params(p2), params(p1)
     n1 = p1'p1
     n2 = p2'p2
     D = 1 / (1+n1*n2 - 2p1'p2)
@@ -135,7 +135,7 @@ end
 
 function ∇²composition1(p2::MRP, p1::MRP, b::AbstractVector)
     check_length(b, 3)
-    p2,p1 = SVector(p2), SVector(p1)
+    p2,p1 = params(p2), params(p1)
     n1 = p1'p1
     n2 = p2'p2
     D = 1 / (1+n1*n2 - 2p1'p2)  # scalar
@@ -155,15 +155,15 @@ function ∇²composition1(p2::MRP, p1::MRP, b::AbstractVector)
 end
 
 function ∇differential(p::MRP)
-    p = SVector(p)
+    p = params(p)
     n = p'p
-    # p = SVector(p)
+    # p = params(p)
     # (1-n)I + 2(skew(p) + p*p')
     # @SMatrix [n + 2p.x^2      2(p.x*p.y-p.z)  2(p.x*p.z+p.y);
     #           2(p.y*p.x+p.z)  n + 2p.y^2      2(p.y*p.z-p.x);
     #           2(p.z*p.x-p.y)  2(p.z*p.y+p.x)  n + 2p.z^2]
     #
-    # p2 = SVector(p)
+    # p2 = params(p)
     # n2 = p2'p2
     return (1-n)*I + 2(skew(p) + p*p')
 end
@@ -171,7 +171,7 @@ end
 
 function ∇²differential(p2::MRP, b::AbstractVector)
     check_length(L, 3)
-    p2 = SVector(p2)
+    p2 = params(p2)
     n2 = p2'p2
     A = -p2  # 3x1
     B = -2p2  # 3x1
@@ -197,7 +197,7 @@ function ∇err(p1::MRP, p2::MRP)
     n1,n2 = norm2(p1),   norm2(p2)
     θ = 1/((1+n1)*(1+n2))
     s1,s2 = (1-n1), (1-n2)
-    p1,p2 = SVector(p1), SVector(p2)
+    p1,p2 = params(p1), params(p2)
     v1 = -2p1
     v2 =  2p2
     s = s1*s2 - v1'v2
@@ -221,7 +221,7 @@ function ∇²err(p1::MRP, p2::MRP, b::AbstractVector)
     n1,n2 = norm2(p1),   norm2(p2)
     θ = 1/((1+n1)*(1+n2))
     s1,s2 = (1-n1), (1-n2)
-    p1,p2 = SVector(p1), SVector(p2)
+    p1,p2 = params(p1), params(p2)
     v1 = -2p1
     v2 =  2p2
     s = s1*s2 - v1'v2
