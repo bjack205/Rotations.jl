@@ -34,10 +34,10 @@ export
     RotXYZ, RotYXZ, RotZXY, RotXZY, RotYZX, RotZYX,
 
     # Quaternion math ops
-    logm, expm, ⊖,
+    logm, expm, ⊖, ⊕,
 
     # Quaternion maps
-    ExponentialMap, VectorPart, CayleyMap, MRPMap, IdentityMap,
+    ExponentialMap, QuatVecMap, CayleyMap, MRPMap, IdentityMap,
 
     # check validity of the rotation (is it close to unitary?)
     isrotation,
@@ -50,12 +50,9 @@ export
     rotation_between,
 
     # principal value of a rotation
-    principal_value,
+    principal_value
 
     # derivatives (names clash with ForwarDiff?)
     #jacobian, hessian
-
-    # get the internal parameters
-    params
 
 end # module

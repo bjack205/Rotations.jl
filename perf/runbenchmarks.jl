@@ -44,7 +44,7 @@ if isfile(paramspath)
     loadparams!(suite, BenchmarkTools.load(paramspath)[1], :evals, :samples);
 else
     tune!(suite, verbose = true)
-    BenchmarkTools.save(paramspath, params(suite))
+    BenchmarkTools.save(paramspath, BenchmarkTools.params(suite))
 end
 
 results = run(suite, verbose=true)

@@ -186,6 +186,17 @@ end
 @inline scalar(q::UnitQuaternion) = q.w
 @inline vector(q::UnitQuaternion) = SVector{3}(q.x, q.y, q.z)
 
+"""
+    params(R::Rotation)
+
+Return an `SVector` of the underlying parameters used by the rotation representation.
+
+# Example
+```julia
+p = MRP(1.0, 2.0, 3.0)
+Rotations.params(p) == @SVector [1.0, 2.0, 3.0]  # true
+```
+"""
 @inline params(q::UnitQuaternion) = SVector{4}(q.w, q.x, q.y, q.z)
 
 # ~~~~~~~~~~~~~~~ Initializers ~~~~~~~~~~~~~~~ #

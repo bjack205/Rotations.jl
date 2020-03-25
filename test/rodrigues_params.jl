@@ -1,5 +1,5 @@
 using ForwardDiff
-import Rotations: ∇rotate, ∇composition1, ∇composition2, skew
+import Rotations: ∇rotate, ∇composition1, ∇composition2, skew, params
 
 
 @testset "$R basic tests" for R in (RodriguesParam, MRP)
@@ -55,7 +55,32 @@ import Rotations: ∇rotate, ∇composition1, ∇composition2, skew
     @test Rotations.∇²differential(g2, b) ≈
         Rotations.∇²composition1(g2, g0, b)
 
-    # Test kinematics
+end
+
+@testset "kinematics" begin
+    # UnitQuaternion
+    q = rand(UnitQuaternion)
     ω = @SVector rand(3)
-    @test Rotations.kinematics(g1, ω) isa SVector{3}
+    q_ = Rotations.params(q)
+    qdot = Rotations.kinematics(q,ω)
+    @test qdot ≈ 0.5*lmult(q)*hmat()*ω
+    @test qdot ≈ 0.5*lmult(q)*hmat(ω)
+    @test ω ≈ 2*vmat()*lmult(q)'qdot
+    @test ω ≈ 2*vmat()*lmult(inv(q))*qdot
+    @test qdot ≈ 0.5 * params(q*pure_quaternion(ω))
+
+    # MRPs
+    ω = @SVector rand(3)
+    g = rand(MRP)
+    p = Rotations.params(g)
+    A = Diagonal(I,3) + 2*(skew(p)^2 + skew(p))/(1+p'p)
+    @test Rotations.kinematics(g, ω) ≈ 0.25*(1 + p'p) * A*ω
+    @test ω ≈ 4/(1+p'p) * A'Rotations.kinematics(g,ω)
+
+    # RPs
+    g = rand(RodriguesParam)
+    p = Rotations.params(g)
+    gdot = Rotations.kinematics(g, ω)
+    @test gdot ≈ 0.5*(Diagonal(I,3) + skew(p) + p*p')*ω
+    @test ω ≈ 2/(1+p'p)*(gdot - p × gdot)
 end

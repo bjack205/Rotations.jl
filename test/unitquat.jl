@@ -1,13 +1,7 @@
-using Rotations
-using LinearAlgebra
-using StaticArrays
-using Test
 using ForwardDiff
-using BenchmarkTools
 
 import Rotations: jacobian, ∇rotate, ∇composition1, ∇composition2
-import Rotations: UnitQuaternion, CayleyMap, ExponentialMap, MRPMap,
-    IdentityMap, QuatVecMap, map_type, expm, logm, ⊖, kinematics, pure_quaternion,
+import Rotations: kinematics, pure_quaternion, params,
     inverse_map, forward_map
 import Rotations: vmat, rmult, lmult, hmat, tmat
 
@@ -99,8 +93,7 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     @test lmult(params(q)) == lmult(q)
     @test hmat(r) == params(pure_quaternion(r))
 
-    @test kinematics(q1, ω) ≈ 0.5 *params(q1*pure_quaternion(ω))
-
+    # Test Jacobians
     @test ForwardDiff.jacobian(q -> UnitQuaternion(q, false) * r, params(q)) ≈
           ∇rotate(q, r)
 
