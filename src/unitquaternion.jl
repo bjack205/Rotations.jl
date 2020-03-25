@@ -6,27 +6,16 @@ import Base: +, -, *, /, \, exp, log, ≈, ==, inv, conj
 
 4-parameter attitute representation that is singularity-free. Quaternions with unit norm
 represent a double-cover of SO(3). The `UnitQuaternion` does NOT strictly enforce the unit
-norm constraint, but certain methods will assume you have a unit quaternion. The
-`UnitQuaternion` type is parameterized by the linearization method, which maps quaternions
-to the 3D plane tangent to the 4D unit sphere. Follows the Hamilton convention for quaternions.
-
-There are currently 4 methods supported:
-* `VectorPart` - uses the vector (or imaginary) part of the quaternion
-* `ExponentialMap` - the most common approach, uses the exponential and logarithmic maps
-* `CayleyMap` - or Rodrigues parameters (aka Gibbs vectors).
-* `MRPMap` - or Modified Rodrigues Parameter, is a sterographic projection of the 4D unit sphere
-onto the plane tangent to either the positive or negative real poles.
+norm constraint, but certain methods will assume you have a unit quaternion.
+Follows the Hamilton convention for quaternions.
 
 # Constructors
 ```julia
-UnitQuaternion(args...)  # defaults to `CayleyMay`
-UnitQuaternion{T<:Real}(args...)
-UnitQuaternion{D<:QuatMap}(args...)
-UnitQuaternion{T,D}(args...)
+UnitQuaternion(w,x,y,z)
+UnitQuaternion(q::AbstractVector)
 ```
-where `args...` can be any of the following:
-- `w,x,y,z` specifying the scalar (real) part `w` and the vector (imaginary) part `x,y,z`
-- `AbstractVector` with elements `[w,x,y,z]` as the first 4 elements
+where `w` is the scalar (real) part, `x`,`y`, and `z` are the vector (imaginary) part,
+and `q = [w,x,y,z]`.
 """
 struct UnitQuaternion{T} <: Rotation{3,T}
     w::T
@@ -46,12 +35,12 @@ struct UnitQuaternion{T} <: Rotation{3,T}
     UnitQuaternion{T}(q::UnitQuaternion) where T = new{T}(q.w, q.x, q.y, q.z)
 end
 
-# include("quaternion_maps.jl")
-
 # ~~~~~~~~~~~~~~~ Constructors ~~~~~~~~~~~~~~~ #
 # Use default map
-UnitQuaternion(w::W,x::X,y::Y,z::Z, normalize::Bool = true) where {W,X,Y,Z} =
-    UnitQuaternion{promote_type(W,X,Y,Z)}(w,x,y,z, normalize)
+function UnitQuaternion(w,x,y,z, normalize::Bool = true)
+    promote(w,x,y,z)
+    UnitQuaternion{eltype(promote)}(w,x,y,z, normalize)
+end
 
 # Pass in Vectors
 @inline function (::Type{Q})(q::AbstractVector, normalize::Bool = true) where Q <: UnitQuaternion
@@ -234,7 +223,7 @@ function pure_quaternion(v::AbstractVector)
 end
 
 @inline pure_quaternion(x::Real, y::Real, z::Real) =
-    UnitQuaternion(0.0, x, y, z, false)
+    UnitQuaternion(zero(x), x, y, z, false)
 
 function exp(q::Q) where Q <: UnitQuaternion
     θ = vecnorm(q)
@@ -282,12 +271,11 @@ rmult(w) * SVector(q)
 
 Sets the output mapping equal to the mapping of `w`
 """
-function (*)(q::UnitQuaternion{T1}, w::UnitQuaternion{T2}) where {T1,T2}
-    T = promote_type(T1, T2)
-    UnitQuaternion{T}(q.w * w.w - q.x * w.x - q.y * w.y - q.z * w.z,
-                      q.w * w.x + q.x * w.w + q.y * w.z - q.z * w.y,
-                      q.w * w.y - q.x * w.z + q.y * w.w + q.z * w.x,
-                      q.w * w.z + q.x * w.y - q.y * w.x + q.z * w.w, false)
+function (*)(q::UnitQuaternion, w::UnitQuaternion)
+    UnitQuaternion(q.w * w.w - q.x * w.x - q.y * w.y - q.z * w.z,
+                   q.w * w.x + q.x * w.w + q.y * w.z - q.z * w.y,
+                   q.w * w.y - q.x * w.z + q.y * w.w + q.z * w.x,
+                   q.w * w.z + q.x * w.y - q.y * w.x + q.z * w.w, false)
 end
 
 """

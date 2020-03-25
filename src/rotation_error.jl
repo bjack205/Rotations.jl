@@ -1,4 +1,24 @@
 
+"""
+    RotationError{T<:Real, D<:ErrorMap} <: StaticVector{3,T}
+
+A three-parameter rotation error, converted to/from a `UnitQuaternion` using the
+`ErrorMap` `D`.
+
+# Usage
+A `RotationError` is typically created using one of the following methods
+
+    rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
+    R1 ⊖ R2
+
+which compute the difference between the rotations `R1` and `R2` and convert the
+result to a 3D rotation error using `error_map`.
+
+The error can be "added" back to a rotation using the inverse operation:
+
+    add_error(R1::Rotation, e::RotationError)
+    R1::Rotation ⊕ e::RotationError
+"""
 struct RotationError{T,D} <: StaticVector{3,T}
     err::SVector{3,T}
     map::D
@@ -7,12 +27,26 @@ struct RotationError{T,D} <: StaticVector{3,T}
     end
 end
 
-# Convert an error back to a rotation
+"""
+    inverse_map(e::RotationError)
+
+Convert the error back to a `UnitQuaternion` using the error map in `e`
+""" # QUESTION: maybe just use `UnitQuaternion`?
 function inverse_map(e::RotationError)::Rotation
     e.map(e.err)
 end
 
-# Compute the error
+"""
+    rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
+
+Compute the `RotationError` by calculating the "difference" between `R1` and `R2`, i.e.
+`R2\\R1`, then mapped to a three-parameter error using `error_map`.
+
+Can be equivalently called using the default map with `R1 ⊖ R2`
+
+If `error_map::IdentityMap`, then `SVector(R1\\R2)::SVector{3}` is used as the error. Note
+this only works for three-parameter rotation representations such as `RodriguesParam` or `MRP`.
+"""
 function rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
     return RotationError(error_map(R2\R1), error_map)
 end
@@ -41,6 +75,16 @@ Base.@propagate_inbounds Base.getindex(e::RotationError, i::Int) = e.err[i]
 @inline Base.Tuple(e::RotationError) = Tuple(e.err)
 
 # Compose a rotation with an error
+"""
+    add_error(R1::Rotation, e::RotationError)
+
+"Adds" the rotation error `e` to the rotation `R1` by converting `e` to a quaternion via
+its `ErrorMap` and then composing with `R1`.
+
+Equivalent to
+
+    R1 ⊕ e
+"""
 function add_error(R1::Rotation, e::RotationError)
     R1 * inverse_map(e)
 end

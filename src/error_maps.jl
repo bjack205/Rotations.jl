@@ -1,4 +1,33 @@
 
+"""
+    ErrorMap
+
+A nonlinear mapping between the space of unit quaternions and three-dimensional
+rotation errors.
+
+These mappings are extremely useful for converting from globally nonsingular 3D rotation
+representations such as `UnitQuaternion` or `RotMatrix3` to a three-parameter error that can
+be efficiently used in gradient-based optimization methods that optimize deviations about
+a current iterate using first or second-order information. 
+
+# Usage
+    errmap(v::AbstractVector)  # "forward" map from a 3D error to a `UnitQuaternion`
+    errmap(R::Rotation)        # "inverse" map from a rotation (via `UnitQuaternion`) to a 3D error
+
+where `errmap <: ErrorMap`
+
+# Implemented Maps
+- `CayleyMap`:  Uses `RodriguesParam` as the error representation (default).
+    Goes singular at 180° and does not have a sign ambiguity.
+- `ExponentialMap`: Uses the canonical exponential map from Lie Group theory. Computationally
+    expensive to compute. Exhibits kinematic singularities.
+- `MRPMap`: Uses a scaled `MRP` as the error representation. Singular at 360° but has
+    a sign ambiguity (with the "shadow" MRP set).
+- `QuatVecMap`: Uses the vector part of the quaternions. Cheapest map to compute, but
+    goes singular at 180° and suffers from sign ambiguity.
+- `IdentityMap`: Maps values through directly. Only works with three-parameter rotation
+    representations with the following methods: `R(::SVector{3})` and `SVector(::R)::SVector{3}`
+"""
 abstract type ErrorMap end
 struct CayleyMap <: ErrorMap end
 struct ExponentialMap <: ErrorMap end
@@ -47,14 +76,14 @@ end
 
 # Quaternion Map Jacobians
 """
-    jacobian(::Type{<:QuatMap}, ϕ)
+    jacobian(::ErrorMap, ϕ)
 
 Jacobian of the quaternion map that takes a three-dimensional vector `ϕ` and returns a
     unit quaternion.
 Returns a 4x3 Static Matrix
 
 For all the maps (except the `IdentityMap`)
-`jacobian(::Type{<:QuatMap}, zeros(3)) = [0; I] = Hmat()'`
+`jacobian(::ErrorMap, zeros(3)) = [0; I] = Hmat()'`
 """
 function jacobian(::ExponentialMap, ϕ, eps=1e-5)
     μ = 1/scaling(ExponentialMap)
@@ -100,14 +129,6 @@ jacobian(::IdentityMap, q) = I
 ############################################################################################
 #                             INVERSE RETRACTION MAPS
 ############################################################################################
-"""
-    (errmap::ErrorMap)(R::Rotation)
-
-Inverse error map, returning a `SVector{3}` parameterizing the rotational error state
-    corresponding to `R`, using the error map `errmap`.
-
-Automatically converts representations to `UnitQuaternion` prior to applying the map.
-"""
 (emap::ErrorMap)(R::Rotation) = emap(UnitQuaternion(R))
 
 (::ExponentialMap)(q::UnitQuaternion) = scaling(ExponentialMap)*logm(q)
@@ -123,10 +144,10 @@ Automatically converts representations to `UnitQuaternion` prior to applying the
 
 # ~~~~~~~~~~~~~~~ Inverse map Jacobians ~~~~~~~~~~~~~~~ #
 """
-    jacobian(::Type{<:QuatMap}, q::UnitQuaternion)
+    jacobian(::ErrorMap, q::UnitQuaternion)
 
 Jacobian of the inverse quaternion map, returning a 3x4 matrix.
-For all maps: `jacobian(::Type{<:QuatMap}, UnitQuaternion(I)) = [0 I] = Hmat()'`
+For all maps: `jacobian(::ErrorMap, UnitQuaternion(I)) = [0 I] = Hmat()'`
 """
 function jacobian(::ExponentialMap, q::UnitQuaternion, eps=1e-5)
     μ = scaling(ExponentialMap)
@@ -182,9 +203,9 @@ jacobian(::IdentityMap, q::UnitQuaternion) = I
 
 # ~~~~~~~~~~~~~~~ Inverse map Jacobian derivative ~~~~~~~~~~~~~~~ #
 """
-    ∇jacobian(::Type{<:QuatMap}, q::UnitQuaternion, b::SVector{3})
+    ∇jacobian(::ErrorMap, q::UnitQuaternion, b::SVector{3})
 
-Jacobian of G(q)'b, where G(q) = jacobian(::Type{<:QuatMap}, q),
+Jacobian of G(q)'b, where G(q) = jacobian(::ErrorMap, q),
     b is a 3-element vector
 """
 function ∇jacobian(::ExponentialMap, q::UnitQuaternion, b::SVector{3}, eps=1e-5)
