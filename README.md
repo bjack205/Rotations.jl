@@ -17,6 +17,55 @@ For composing rotations about the origin with other transformations, see
 the [CoordinateTransformations.jl](https://github.com/JuliaGeometry/CoordinateTransformations.jl)
 package.
 
+### Interface
+The following operations are supported by all of the implemented rotation parameterizations.
+
+#### Composition
+Any two rotations of the same type can be composed with simple multiplication:
+```julia
+q3 = q2*q1
+```
+Rotations can be composed with the opposite (or inverse) rotation with the appropriate
+division operation
+```julia
+q1 = q2\q3
+q2 = q3/q1
+```
+
+#### Rotation
+Any rotation can operate on a 3D vector (represented as a `SVector{3}`), again through
+simple multiplication:
+```julia
+r2 = q*r
+```
+which also supports multiplication by the opposite rotation
+```julia
+r = q\r2
+```
+
+#### Rotation Angle / Axis
+The rotation angle and axis can be obtained for any rotation parameterization using
+```julia
+rotation_axis(r::Rotation)
+rotation_angle(r::Rotation)
+```
+
+#### Initialization
+All rotation types support `one(R)` to construct the identity rotation for the desired parameterization. A random rotation, uniformly sampled over the space of rotations, can be sampled using `rand(R)`. For example:
+```julia
+r = one(Quat)  # equivalent to Quat(1.0, 0.0, 0.0, 0.0)
+q = rand(UnitQuaternion)
+p = rand(MRP{Float32})
+```
+
+#### Conversion
+All rotatations can be converted to another parameterization by simply calling the constructor for the desired parameterization. For example:
+```julia
+q = rand(Quat)
+aa = AngleAxis(q)
+r = RotMatrix(aa)
+```
+
 ### Example Usage
 
 ```julia
@@ -116,18 +165,24 @@ j2 = Rotations.jacobian(q, p) # How does the rotated point q*p change w.r.t. the
     A 3D rotation encoded by the stereographic projection of a unit quaternion.  This projection can be visualized as a pin hole camera, with the pin hole matching the quaternion `[-1,0,0,0]` and the image plane containing the origin and having normal direction `[1,0,0,0]`.  The "null rotation" `Quaternion(1.0,0,0,0)` then maps to the `SPQuat(0,0,0)`
 
     These are similar to the Rodrigues vector in that the axis direction is stored in an unnormalized form, and the rotation angle is encoded in the length of the axis.  This type has the nice property that the derivatives of the rotation matrix w.r.t. the `SPQuat` parameters are rational functions, making the `SPQuat` type a good choice for differentiation / optimization.
+    
+6. **Rodrigues Parameters** `RodriguesParam{T}`
+    A 3-parameter representation of 3D rotations that has a singularity at 180 degrees. They can be interpreted as a projection of the unit quaternion onto the plane tangent to the quaternion identity. They are computationally efficient and do not have a sign ambiguity. 
+    
+7. **Modified Rodrigues Parameter** `MRP{T}`
+    Equivalent to `SPQuat{T}`. Are frequently used in aerospace applications since they are a 3-parameter representation whose singularity happens at 360 degrees. In practice, the singularity can be avoided with some switching logic between one of two equivalent MRPs (obtained by projecting the negated quaternion). 
 
-6. **Cardinal axis rotations** `RotX{T}`, `RotY{T}`, `RotZ{T}`
+8. **Cardinal axis rotations** `RotX{T}`, `RotY{T}`, `RotZ{T}`
 
     Sparse representations of 3D rotations about the X, Y, or Z axis, respectively.
 
-7. **Two-axis rotations** `RotXY{T}`, etc
+9. **Two-axis rotations** `RotXY{T}`, etc
 
     Conceptually, these are compositions of two of the cardinal axis rotations above,
     so that `RotXY(x, y) == RotX(x) * RotY(y)` (note that the order of application to
     a vector is right-to-left, as-in matrix-matrix-vector multiplication: `RotXY(x, y) * v == RotX(x) * (RotY(y) * v)`).
 
-8. **Euler Angles - Three-axis rotations** `RotXYZ{T}`, `RotXYX{T}`, etc
+10. **Euler Angles - Three-axis rotations** `RotXYZ{T}`, `RotXYX{T}`, etc
 
     A composition of 3 cardinal axis rotations is typically known as a Euler
     angle parameterization of a 3D rotation. The rotations with 3 unique axes,
@@ -135,6 +190,50 @@ j2 = Rotations.jacobian(q, p) # How does the rotated point q*p change w.r.t. the
     while those which repeat (e.g. `EulerXYX`) are said to use [**Proper Euler**](https://en.wikipedia.org/wiki/Euler_angles#Conventions) angle ordering.
 
     Like the two-angle versions, the order of application to a vector is right-to-left, so that `RotXYZ(x, y, z) * v == RotX(x) * (RotY(y) * (RotZ(z) * v))`.  This may be interpreted as an "extrinsic" rotation about the Z, Y, and X axes or as an "intrinsic" rotation about the X, Y, and Z axes.  Similarly, `RotZYX(z, y, x)` may be interpreted as an "extrinsic" rotation about the X, Y, and Z axes or an "intrinsic" rotation about the Z, Y, and X axes. 
+    
+### The Rotation Error state and Linearization
+It is often convenient to consider perturbations or errors about a particular 3D rotation, such as applications in state estimation or optimization-based control. Intuitively, we expect these errors to live in three-dimensional space. For globally non-singular parameterizations such as unit quaternions, we need a way to map between the four parameters of the quaternion to this three-dimensional plane tangent to the four-dimensional hypersphere on which quaternions live. 
+
+There are several of these maps provided by Rotations.jl:
+* `ExponentialMap`: A very common mapping that uses the quaternion
+exponential and the quaternion logarithm. The quaternion logarithm
+converts a 3D rotation vector (i.e. axis-angle vector) to a unit quaternion.
+It tends to be the most computationally expensive mapping.
+
+* `CayleyMap`: Represents the differential quaternion using Rodrigues
+parameters. This parameterization goes singular at 180° but does not
+inherit the sign ambiguities of the unit quaternion. It offers an
+excellent combination of cheap computation and good behavior.
+
+* `MRPMap`: Uses Modified Rodrigues Parameters (MRPs) to represent the
+differential unit quaternion. This mapping goes singular at 360°.
+
+* `QuatVecMap`: Uses the vector part of the unit quaternion as the
+differential unit quaternion. This mapping also goes singular at 180° but is
+the computationally cheapest map and often performs well.
+
+Rotations.jl provides the `RotationError` type for representing rotation errors, that act just like a `SVector{3}` but carry the nonlinear map used to compute the error, which can also be used to convert the error back to a `UnitQuaternion` (and, by extention, any other 3D rotation parameterization). The following methods are useful for computing `RotationError`s and adding them back to the nominal rotation:
+```julia
+rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)  # compute the error between `R1` and `R2` using `error_map`
+add_error(R::Roation, err::RotationError)  # "adds" the error to `R` by converting back a `UnitQuaterion` and composing with `R`
+```
+or their aliases
+```julia
+R1 ⊖ R2   # caclulate the error using the default error map
+R1 ⊕ err  # alias for `add_error(R1, err)`
+```
+
+For a practical application of these ideas, see the quatenrion-multiplicative Extended Kalman Filter (MEKF). [This article](https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20040037784.pdf) provides a good description.
+
+When taking derivatives with respect to quaternions we need to account both for these mappings and the fact that local perturbations to a rotation act through composition instead of addition, as they do in vector space (e.g. `q * dq` vs `x + dx`). The following methods are useful for computing these Jacobians for `UnitQuaternion`, `RodriguesParam` or `MRP`
+* `∇rotate(q,r)`: Jacobian of the `q*r` with respect to the rotation
+* `∇composition1(q2,q1)`: Jacobian of `q2*q1` with respect to q1
+* `∇composition2(q2,q1,b)`: Jacobian of `q2*q1` with respect to q2
+* `∇²composition1(q2,q1)`: Jacobian of `∇composition1(q2,q2)'b` where b is an arbitrary vector
+* `∇differential(q)`: Jacobian of composing the rotation with an infinitesimal rotation, with
+respect to the infinitesimal rotation. For unit quaternions, this is a 4x3 matrix.
+* `∇²differential(q,b)`: Jacobian of `∇differential(q)'b` for some vector b.
+
 
 ### Import / Export
 
