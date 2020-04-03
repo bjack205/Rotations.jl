@@ -166,7 +166,7 @@ jacobian(::IdentityMap, q) = I
 # (emap::InvErrorMap)(R::Rotation) = emap(UnitQuaternion(R))  # automatically call the inverse map for rotations
 # NOTE: Julia v1.0 doesn't allow these methods on abstract types. Leave out for now.
 
-for imap in (InvErrorMap,InvCayleyMap,InvMRPMap,InvQuatVecMap)
+for imap in (InvExponentialMap,InvCayleyMap,InvMRPMap,InvQuatVecMap)
     @eval begin
         @inline (imap::$imap)(R::Rotation) = imap(UnitQuaternion(R))
     end

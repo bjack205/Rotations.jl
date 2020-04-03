@@ -5,6 +5,7 @@ using Test
 
 import Rotations: RotationError, rotation_error, add_error, params
 
+@testset "Rotation Error" begin
 q1 = rand(UnitQuaternion)
 dq = expm(0.1 * normalize(@SVector rand(3)))
 q2 = q1*dq
@@ -60,3 +61,4 @@ g = inv(emap)(q1)
 g = RodriguesParam(g)
 @test UnitQuaternion(g) ≈ q1
 @test imap(g) ≈ params(g)
+end
