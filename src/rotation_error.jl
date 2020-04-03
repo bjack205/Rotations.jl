@@ -31,8 +31,8 @@ end
     inverse_map(e::RotationError)
 
 Convert the error back to a `UnitQuaternion` using the error map in `e`
-""" # QUESTION: maybe just use `UnitQuaternion`?
-@inline forward_map(e::RotationError)::Rotation = inverse_map(e.map, e.err)
+"""
+@inline UnitQuaternion(e::RotationError)::Rotation = e.map(e.err)
 
 """
     rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
@@ -46,11 +46,11 @@ If `error_map::IdentityMap`, then `SVector(R1\\R2)::SVector{3}` is used as the e
 this only works for three-parameter rotation representations such as `RodriguesParam` or `MRP`.
 """
 function rotation_error(R1::Rotation, R2::Rotation, error_map::ErrorMap)
-    return RotationError(inverse_map(error_map, R2\R1), error_map)
+    return RotationError(inv(error_map)(R2\R1), error_map)
 end
 
 function rotation_error(R1::Rotation, R2::Rotation, error_map::IdentityMap)
-    err = SVector(R2\R1)
+    err = params(R2\R1)
     if length(err) != 3
         throw(ArgumentError("R2\\R1 must be a three-dimensional parameterization, got $(length(err))"))
     end
@@ -84,11 +84,14 @@ Equivalent to
     R1 ⊕ e
 """
 function add_error(R1::Rotation, e::RotationError)
-    R1 * forward_map(e)
+    R1 * UnitQuaternion(e)
 end
 
 function add_error(R1::R, e::RotationError{<:Any, IdentityMap}) where R <: Rotation
     # must be able to construct R from a SVector{3}
+    if length(params(R1)) != 3
+        throw(ArgumentError("Can't construct a rotation of type $R from three parameters"))
+    end
     R1 * R(e.err)
 end
 

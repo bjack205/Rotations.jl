@@ -1,8 +1,7 @@
 using ForwardDiff
 
 import Rotations: jacobian, ∇rotate, ∇composition1, ∇composition2
-import Rotations: kinematics, pure_quaternion, params,
-    inverse_map, forward_map
+import Rotations: kinematics, pure_quaternion, params
 import Rotations: vmat, rmult, lmult, hmat, tmat
 
 @testset "Unit Quaternions" begin
@@ -51,7 +50,7 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     # Test math
     @test UnitQuaternion(I) isa UnitQuaternion{Float64}
 
-    ϕ = inverse_map(ExponentialMap(), q1)
+    ϕ = inv(ExponentialMap())(q1)
     @test expm(ϕ * 2) ≈ q1
     q = Rotations.pure_quaternion(ϕ)
     @test exp(q) ≈ q1
@@ -68,9 +67,9 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     @test rotation_angle(q) ≈ 0.1
     @test rotation_axis(q) == [1, 0, 0]
 
-    @test norm(q1 * forward_map(ExponentialMap(), ϕ)) ≈ 1
+    @test norm(q1 * ExponentialMap()(ϕ)) ≈ 1
     @test q1 ⊖ q2 isa StaticVector{3}
-    @test (q1 * forward_map(CayleyMap(), ϕ)) ⊖ q1 ≈ ϕ
+    @test (q1 * CayleyMap()(ϕ)) ⊖ q1 ≈ ϕ
 
 
     # Test inverses
@@ -79,7 +78,7 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     @test q3 / q1 ≈ q2
     @test inv(q1) * r ≈ q1 \ r
     @test r ≈ q3 \ (q2 * q1 * r)
-    @test q3 ⊖ q2 ≈ inverse_map(CayleyMap(), q1)
+    @test q3 ⊖ q2 ≈ inv(CayleyMap())(q1)
 
     q = q1
     rhat = Rotations.pure_quaternion(r)
@@ -106,7 +105,7 @@ import Rotations: vmat, rmult, lmult, hmat, tmat
     qval = params(q1)
     ForwardDiff.jacobian(q -> ∇composition1(q2, UnitQuaternion(q))'b,
         @SVector [1, 0, 0, 0.0,])
-    diffcomp = ϕ -> params(q2 * forward_map(CayleyMap(), ϕ))
+    diffcomp = ϕ -> params(q2 * CayleyMap()(ϕ))
     ∇diffcomp(ϕ) = ForwardDiff.jacobian(diffcomp, ϕ)
     @test ∇diffcomp(@SVector zeros(3)) ≈ Rotations.∇differential(q2)
     @test ForwardDiff.jacobian(ϕ -> ∇diffcomp(ϕ)'b, @SVector zeros(3)) ≈
