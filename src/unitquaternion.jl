@@ -1,7 +1,7 @@
 import Base: +, -, *, /, \, exp, log, ≈, ==, inv, conj
 
 """
-    UnitQuaternion{T,D} <: Rotation
+    UnitQuaternion{T} <: Rotation
 
 4-parameter attitute representation that is singularity-free. Quaternions with unit norm
 represent a double-cover of SO(3). The `UnitQuaternion` does NOT strictly enforce the unit
@@ -181,8 +181,6 @@ function Base.Tuple(q::UnitQuaternion)
 end
 
 # ~~~~~~~~~~~~~~~ Getters ~~~~~~~~~~~~~~~ #
-@inline map_type(q::UnitQuaternion) = q.map
-
 @inline scalar(q::UnitQuaternion) = q.w
 @inline vector(q::UnitQuaternion) = SVector{3}(q.x, q.y, q.z)
 
@@ -320,25 +318,11 @@ end
 
 
 
-"Inverted composition. Equivalent to inv(q1)*q2"
-(\)(q1::UnitQuaternion, q2::UnitQuaternion) = conj(q1)*q2
+(\)(q1::UnitQuaternion, q2::UnitQuaternion) = conj(q1)*q2  # Equivalent to inv(q1)*q2
+(/)(q1::UnitQuaternion, q2::UnitQuaternion) = q1*conj(q2)  # Equivalent to q1*inv(q2)
 
-"Inverted composition. Equivalent to q1*inv(q2)"
-(/)(q1::UnitQuaternion, q2::UnitQuaternion) = q1*conj(q2)
+(\)(q::UnitQuaternion, r::SVector{3}) = conj(q)*r          # Equivalent to inv(q)*r
 
-"Inverted rotation. Equivalent to inv(q)*r"
-(\)(q::UnitQuaternion, r::SVector{3}) = conj(q)*r
-
-
-# # ~~~~~~~~~~~~~~~ Quaternion Differences ~~~~~~~~~~~~~~~ #
-# function (⊖)(q::UnitQuaternion{<:Any,D}, q0::UnitQuaternion) where D
-#     D(q0\q)
-# end
-#
-# function (⊖)(q::UnitQuaternion{<:Any,IdentityMap}, q0::UnitQuaternion)
-#     SVector(q) - SVector(q0)
-#     # return SVector(q0\q)
-# end
 
 # ~~~~~~~~~~~~~~~ Kinematics ~~~~~~~~~~~~~~~ $
 """
@@ -370,7 +354,7 @@ end
     lmult(q::UnitQuaternion)
     lmult(q::StaticVector{4})
 
-`lmult(q2)*SVector(q1)` returns a vector equivalent to `q2*q1` (quaternion composition)
+`lmult(q2)*params(q1)` returns a vector equivalent to `q2*q1` (quaternion composition)
 """
 function lmult(q::UnitQuaternion)
     SA[
@@ -386,7 +370,7 @@ lmult(q::StaticVector{4}) = lmult(UnitQuaternion(q, false))
     rmult(q::UnitQuaternion)
     rmult(q::StaticVector{4})
 
-`rmult(q1)*SVector(q2)` return a vector equivalent to `q2*q1` (quaternion composition)
+`rmult(q1)*params(q2)` return a vector equivalent to `q2*q1` (quaternion composition)
 """
 function rmult(q::UnitQuaternion)
     SA[
@@ -401,7 +385,7 @@ rmult(q::SVector{4}) = rmult(UnitQuaternion(q, false))
 """
     tmat()
 
-`tmat()*SVector(q)`return a vector equivalent to `inv(q)`, where `q` is a `UnitQuaternion`
+`tmat()*params(q)`return a vector equivalent to `inv(q)`, where `q` is a `UnitQuaternion`
 """
 function tmat(::Type{T}=Float64) where T
     SA{T}[
@@ -415,7 +399,7 @@ end
 """
     vmat()
 
-`vmat()*SVector(q)`` returns the imaginary
+`vmat()*params(q)`` returns the imaginary
     (vector) part of the quaternion `q` (equivalent to `vector(q)``)
 """
 function vmat(::Type{T}=Float64) where T
@@ -469,9 +453,9 @@ function ∇differential(q::UnitQuaternion)
 end
 
 """
-    ∇²differential(q::UnitQuaternion, b::SVector{4})
+    ∇²differential(q::UnitQuaternion, b::AbstractVector)
 
-Jacobian of `(∂/∂ϕ lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0
+Jacobian of `(∂/∂ϕ lmult(q) QuatMap(ϕ))`b, evaluated at ϕ=0, and `b` has length 4.
 """
 function ∇²differential(q::UnitQuaternion, b::AbstractVector)
     check_length(b, 4)
@@ -480,7 +464,7 @@ function ∇²differential(q::UnitQuaternion, b::AbstractVector)
 end
 
 """
-    ∇rotate(R::Rotation{3}, r::StaticVector)
+    ∇rotate(R::Rotation{3}, r::AbstractVector)
 
 Jacobian of `R*r` with respect to the rotation
 """

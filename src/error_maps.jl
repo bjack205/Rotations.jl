@@ -44,8 +44,10 @@ inverting an `ErrorMap`, i.e.
     InvCayleyMap() = inv(CayleyMap())
 
 # Usage
-    inv_errormap(R::Rotation)             # "inverse" map from a rotation to a 3D error
-    inv(inv_errormap)(v::AbstractVector)  # "forward" map from a 3D error to a `UnitQuaternion`
+    imap(R::Rotation)             # "inverse" map from a rotation to a 3D error
+    inv(imap)(v::AbstractVector)  # "forward" map from a 3D error to a `UnitQuaternion`
+
+where `imap <: InvErrorMap`.
 
 See `ErrorMap` for documentation on the implemented maps.
 """
@@ -178,10 +180,10 @@ end
 
 # ~~~~~~~~~~~~~~~ Inverse map Jacobians ~~~~~~~~~~~~~~~ #
 """
-    jacobian(::ErrorMap, q::UnitQuaternion)
+    jacobian(::InvErrorMap, q::UnitQuaternion)
 
 Jacobian of the inverse quaternion map, returning a 3x4 matrix.
-For all maps: `jacobian(::ErrorMap, UnitQuaternion(I)) = [0 I] = Hmat()'`
+For all maps: `jacobian(::InvErrorMap, UnitQuaternion(I)) = [0 I] = Hmat()'`
 """
 function jacobian(::InvExponentialMap, q::UnitQuaternion, eps=1e-5)
     μ = scaling(ExponentialMap)
@@ -238,9 +240,9 @@ jacobian(::IdentityMap, q::UnitQuaternion) = I
 
 # ~~~~~~~~~~~~~~~ Inverse map Jacobian derivative ~~~~~~~~~~~~~~~ #
 """
-    ∇jacobian(::ErrorMap, q::UnitQuaternion, b::SVector{3})
+    ∇jacobian(::InvErrorMap, q::UnitQuaternion, b::SVector{3})
 
-Jacobian of G(q)'b, where G(q) = jacobian(::ErrorMap, q),
+Jacobian of G(q)'b, where G(q) = jacobian(::InvErrorMap, q),
     b is a 3-element vector
 """
 function ∇jacobian(::InvExponentialMap, q::UnitQuaternion, b::SVector{3}, eps=1e-5)

@@ -27,11 +27,6 @@ struct RotationError{T,D} <: StaticVector{3,T}
     end
 end
 
-"""
-    inverse_map(e::RotationError)
-
-Convert the error back to a `UnitQuaternion` using the error map in `e`
-"""
 @inline UnitQuaternion(e::RotationError)::Rotation = e.map(e.err)
 
 """
